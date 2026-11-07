@@ -151,10 +151,14 @@ public class GlobalExceptionHandler {
 
         log.warn("Access denied on {}: {}", request.getRequestURI(), ex.getMessage());
 
+        String message = (ex.getMessage() != null && !ex.getMessage().isBlank())
+                ? ex.getMessage()
+                : "Access denied. You do not have permission to perform this action";
+
         ErrorResponse errorResponse = new ErrorResponse(
                 HttpStatus.FORBIDDEN.value(),
                 "Forbidden",
-                "Access denied. You do not have permission to perform this action",
+                message,
                 request.getRequestURI()
         );
 
