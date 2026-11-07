@@ -9,7 +9,7 @@ Repository: `D:\Final Project\LegderLine`
 ## Log Entry 1: Phase 1 – Foundation, Database Scaffolding & Flyway Baseline
 
 - **Date:** 2026-11-07
-- **Git Commit:** [`e53d174`](https://github.com/ledgerline/ledgerline-backend/commit/e53d174069c289b5b7876957b7ca9e367ef87143) (`e53d174069c289b5b7876957b7ca9e367ef87143`)
+- **Git Commit:** [`e53d174`](https://github.com/Praneethbandi05/Ledger_Line/commit/e53d174069c289b5b7876957b7ca9e367ef87143) (`e53d174069c289b5b7876957b7ca9e367ef87143`)
 - **User Prompt / Objective:**
   > Inspect and configure the project foundation. Verify Java 21, Spring Boot, Maven, React + Vite, PostgreSQL driver, Spring Data JPA with `ddl-auto=validate`, database connection health check, global exception handling, and request validation. Do not hardcode database credentials. Run Maven tests, Maven build, and npm build.
 
@@ -50,7 +50,7 @@ Repository: `D:\Final Project\LegderLine`
 ## Log Entry 2: Phase 2 – Authentication, Authorization, IDOR & Access Control
 
 - **Date:** 2026-11-07
-- **Git Commit:** [`76ecca4`](https://github.com/ledgerline/ledgerline-backend/commit/76ecca4afff5e6d0344447e6cde2e450eb85487a) (`76ecca4afff5e6d0344447e6cde2e450eb85487a`)
+- **Git Commit:** [`76ecca4`](https://github.com/Praneethbandi05/Ledger_Line/commit/76ecca4afff5e6d0344447e6cde2e450eb85487a) (`76ecca4afff5e6d0344447e6cde2e450eb85487a`)
 - **User Prompt / Objective:**
   > Implement Phase 2: Authentication and Authorisation using Spring Security and JWT. Implement User registration, secure login, BCrypt password hashing, JWT generation/validation, JWT filter, token invalidation, role-based authorization (ADMIN, CUSTOMER, AUDITOR), and account-level ownership checks. Never trust customer ID from request body. Prevent IDOR and privilege escalation. Write automated tests for valid login, invalid password, expired/invalid token, unauthenticated requests, customer accessing another customer's account, customer accessing admin APIs, and auditor attempting financial operations.
 
