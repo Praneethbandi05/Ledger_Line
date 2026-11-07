@@ -34,20 +34,49 @@ com.ledgerline
 
 ---
 
-## 2. Implemented Features (Phase 1: Project Foundation)
+## 2. Implemented Features
 
+### Phase 1: Project Foundation
 1. **Java 21 & Spring Boot 3.3.5 Configuration:** Configured Maven multi-stage build targeting Java 21 bytecode with strict compiler parameter retention.
 2. **PostgreSQL Database Connection:** Configured HikariCP connection pooling connecting to PostgreSQL 16 (`ledgerline` database) using dynamic environment variables.
-3. **Database Migration via Flyway:** Flyway-managed schema changes (`V1__init_foundation.sql`) ensuring reproducible version-controlled DDL. Hibernate DDL auto is strictly set to `validate` (never `create` or `create-drop`).
-4. **Database Connection Health Check:**
-   - Dedicated service `DatabaseHealthService` performing active JDBC connection validation (`isValid`), metadata inspection, and `SELECT 1` query probes.
-   - Real-time endpoints at `GET /api/v1/health` and `GET /api/v1/health/db`.
-5. **Centralized Global Exception Handling:**
-   - Unified `@RestControllerAdvice` implementing RFC-7807/ProblemDetail-aligned error payloads (`ErrorResponse`).
-   - Detailed field-by-field validation error capture (`ValidationErrorItem`).
-   - Graceful handling of `MethodArgumentNotValidException`, `ConstraintViolationException`, `HttpMessageNotReadableException`, `HttpRequestMethodNotSupportedException`, `AccessDeniedException`, and unexpected server errors without leaking internal stack traces.
-6. **Request Validation:** Integrated Jakarta Bean Validation (`@NotNull`, `@NotBlank`, `@Positive`, `@DecimalMin`) with monetary constraints.
+3. **Database Migration via Flyway:** Flyway-managed schema changes (`V1__init_foundation.sql`, `V2__auth_and_accounts_schema.sql`) ensuring reproducible version-controlled DDL. Hibernate DDL auto is strictly set to `validate` (never `create` or `create-drop`).
+4. **Database Connection Health Check:** Dedicated service `DatabaseHealthService` performing active JDBC connection validation (`isValid`), metadata inspection, and `SELECT 1` query probes (`GET /api/v1/health`, `GET /api/v1/health/db`).
+5. **Centralized Global Exception Handling:** Unified `@RestControllerAdvice` implementing RFC-7807/ProblemDetail-aligned error payloads with field-level validation errors.
+6. **Request Validation:** Integrated Jakarta Bean Validation (`@NotNull`, `@NotBlank`, `@Positive`, `@DecimalMin`).
 7. **Frontend Scaffolding:** React 18 + Vite foundation with responsive fintech layout and proxy configuration to backend API.
+
+### Phase 2: Authentication & Authorisation (Role-Based Access & IDOR Defense)
+1. **BCrypt Password Hashing:** All user passwords hashed via `BCryptPasswordEncoder` with individual cryptographic salts. Password hashes are never exposed in responses or logs.
+2. **Stateless JWT Authentication:** JJWT 0.12.6 with HMAC-SHA256 signatures, extracting subject, user ID, and role.
+3. **Token Blacklist & Revocation Strategy:** Persistent SHA-256 token hashing table (`token_blacklist`) enabling instantaneous token invalidation upon user logout.
+4. **Role-Based Authorization:**
+   - `ADMIN`: Manage users, view system statistics, and inspect accounts.
+   - `CUSTOMER`: Access strictly their own accounts, balances, and transactions.
+   - `AUDITOR`: Strictly read-only visibility into accounts and audit records. Prohibited from money movement or account mutations.
+5. **IDOR & Privilege Escalation Defenses:**
+   - `AccountOwnershipValidator` enforces account ownership by extracting user ID directly from `SecurityContextHolder`. Request bodies are never trusted for identity or account ownership.
+   - Registration strictly enforces the `CUSTOMER` role, blocking privilege escalation attempts.
+
+---
+
+## 5. Security & API Reference
+
+### Authentication Endpoints (`/api/v1/auth`)
+- `POST /api/v1/auth/register`: Public. Registers a customer and auto-provisions an initial active savings account.
+- `POST /api/v1/auth/login`: Public. Validates credentials and returns signed Bearer JWT.
+- `POST /api/v1/auth/logout`: Authenticated. Revokes the presented token into the persistent blacklist.
+- `GET /api/v1/auth/me`: Authenticated. Returns current user profile derived from the validated security context.
+
+### Account Endpoints (`/api/v1/accounts`)
+- `GET /api/v1/accounts/my`: `CUSTOMER`, `ADMIN`. Returns accounts belonging strictly to the authenticated user.
+- `GET /api/v1/accounts/{accountId}`: `CUSTOMER`, `ADMIN`, `AUDITOR`. Returns account details only if ownership passes validation (IDOR protection).
+- `POST /api/v1/accounts`: `CUSTOMER`, `ADMIN`. Creates a new account for the authenticated user.
+- `GET /api/v1/accounts/all`: `ADMIN`, `AUDITOR`. Returns all system accounts for administrative or audit inspection.
+- `POST /api/v1/accounts/{accountId}/financial-operation-check`: Restricted. Validates that auditors and non-owner customers cannot execute financial actions (403 Forbidden).
+
+### Admin Endpoints (`/api/v1/admin`)
+- `GET /api/v1/admin/users`: `ADMIN` only. Lists all registered users and roles.
+- `PATCH /api/v1/admin/users/{userId}/status?enabled={true|false}`: `ADMIN` only. Enables or disables user accounts.
 
 ---
 
