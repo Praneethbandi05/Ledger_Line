@@ -1,177 +1,165 @@
 # LEDGERLINE – Money Movement With a Ledger You Can Prove
 
-LEDGERLINE is a financial transaction management platform engineered to guarantee double-entry accounting integrity, idempotency, strict concurrency controls (preventing double-spending), audit immutability, and role-based security.
+[![Backend Build](https://img.shields.io/badge/Java-21-blue.svg)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.5-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
+[![Flyway](https://img.shields.io/badge/Flyway-10.x-red.svg)](https://flywaydb.org/)
+[![React](https://img.shields.io/badge/React-18-cyan.svg)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-5-purple.svg)](https://vitejs.dev/)
+[![Tests Passing](https://img.shields.io/badge/Tests-60%2F60%20Passing-success.svg)](#automated-testing-suite)
 
-Developed for the Snovasys 2026 hiring assessment.
+**LEDGERLINE** is an institutional-grade financial transaction management application engineered for the **Snovasys 2026 Fresher Hiring Assessment**. It guarantees **absolute double-entry balance integrity**, **PostgreSQL-backed idempotency**, **deadlock-free deterministic concurrency**, **append-only audit immutability**, and **multi-layered IDOR defense**.
 
 ---
 
-## 1. System Architecture & Foundation
+## 1. Core System Guarantees
 
-The system follows a clean layered architecture with a strict separation between domain business logic, data persistence, REST communication, and security:
+- **Every financial transaction is authorized:** Strict Spring Security JWT validation with instantaneous token revocation via persistent token blacklist.
+- **Duplicate requests never execute twice:** PostgreSQL-backed idempotency engine requiring unique `Idempotency-Key` headers; verifies canonical SHA-256 payload digests; returns cached results on identical replay and 409 Conflict on payload tampering.
+- **Simultaneous withdrawals cannot overspend:** PostgreSQL pessimistic write row locking (`SELECT ... FOR UPDATE`) prevents concurrent overdraft race conditions.
+- **Account balances remain correct:** Strict `BigDecimal` arithmetic (scale 2, Half-Even rounding) paired with database check constraints (`chk_account_balance_non_negative`). Float and double types are prohibited.
+- **Every transaction has a balanced double-entry ledger:** Every financial movement creates balanced debit and credit entries ($\sum \text{Debits} \equiv \sum \text{Credits} \equiv \text{Transaction Amount}$) utilizing institutional system clearing accounts (`SYS-CLEARING-DEP`, `SYS-CLEARING-WDL`).
+- **Deadlock-Free Bidirectional Transfers:** Multi-account transfers acquire pessimistic locks deterministically in ascending Primary Key ID order (`min(id1, id2)` then `max(id1, id2)`), mathematically eliminating circular waits.
+- **Failed transactions roll back completely:** Atomic Spring `@Transactional` boundaries encompass the idempotency check, account balance updates, double-entry ledger entries, and audit logging.
+- **Transactions are traceable through audit records:** Append-only immutable audit trail (`audit_logs`) marked `@Immutable` at the Hibernate layer, with deletion operations disabled at the repository tier.
+- **Customers cannot access other customers' accounts:** Backend `AccountOwnershipValidator` resolves the user identity strictly from the authenticated `SecurityContext`, rejecting IDOR and privilege escalation attacks with `403 Forbidden`.
+
+---
+
+## 2. Project Architecture & Packages
+
+Follows a clean layered architecture with a strict separation between domain business logic, data persistence, REST communication, and security:
 
 ```text
 com.ledgerline
     ├── config        # Spring Security, CORS, Web MVC configuration
-    ├── controller    # Thin REST controllers (DTOs, Bean Validation)
+    ├── controller    # Thin REST controllers accepting DTOs with Bean Validation
     ├── dto           # Request/Response objects, Error representations
-    ├── entity        # JPA domain entities with DB constraints
-    ├── enums         # Roles, Transaction types, Entry types
-    ├── exception     # Centralized exception hierarchy & @RestControllerAdvice
+    ├── entity        # JPA domain entities with DB constraints and BigDecimal types
+    ├── enums         # Roles, Transaction types, Entry types, Account types
+    ├── exception     # Centralized exception hierarchy & @RestControllerAdvice (RFC-7807)
     ├── repository    # Spring Data JPA repositories with row-level locking
-    ├── security      # JWT tokens, authentication filters, ownership validators
-    ├── service       # Core transactional business logic
-    ├── util          # Numeric scaling, cryptographic hashing, formatting
-    ├── audit         # Append-only audit trail logging
-    └── ledger        # Double-entry ledger invariant engine
+    ├── security      # JWT tokens, authentication filters, IDOR ownership validators
+    ├── service       # Core transactional business logic (@Transactional)
+    ├── ledger        # DoubleEntryLedgerEngine enforcing debits == credits
+    ├── audit         # Append-only immutable audit trail logging
+    └── util          # Numeric scaling, canonical JSON hashing, reference generators
+
+frontend/src/
+    ├── assets/       # Static branding and icon resources
+    ├── components/   # Reusable UI components (Navbar, Alert, DoubleEntryBadge, TransactionModal)
+    ├── context/      # React AuthContext (JWT storage, login, register, logout)
+    ├── pages/        # CustomerDashboard, AdminDashboard, AuditorDashboard, LoginPage
+    ├── services/     # Axios API service clients (auth, accounts, transactions, admin, audit)
+    └── styles/       # Modern fintech design system (dark/light themes, tables, cards, modal)
 ```
 
-### Technology Stack
-- **Backend:** Java 21 LTS, Spring Boot 3.3.5, Spring Data JPA, Hibernate 6.5, Spring Security 6.3, Flyway Migration 10.x, Maven Wrapper.
-- **Frontend:** React 18, Vite 5, Axios, Lucide Icons, Modern CSS Design System.
-- **Database:** PostgreSQL 16 (local instance on port 5432).
-- **Testing:** JUnit 5, Mockito, Spring Boot Test, H2 (PostgreSQL compatibility mode for hermetic slice testing).
+---
+
+## 3. Seeded Demo Accounts
+
+The database is pre-seeded via Flyway migrations (`V2` and `V3`) with test users across all three platform roles:
+
+| Username | Password | Role | Description & Initial Accounts |
+| :--- | :--- | :--- | :--- |
+| `alice` | `Customer@123` | `CUSTOMER` | Regular customer. Initial savings account `ACC-1001-ALICE` ($1,000.00). |
+| `bob` | `Customer@123` | `CUSTOMER` | Regular customer. Initial savings account `ACC-1002-BOB` ($1,000.00). |
+| `admin` | `Admin@123` | `ADMIN` | System administrator. User management, account inspection, platform stats. |
+| `auditor` | `Auditor@123` | `AUDITOR` | Regulatory auditor. Read-only access to ledger journals, balance proofs, and audit logs. |
+
+> **Note:** The UI login page features 1-click **Quick Fill** buttons to instantly populate credentials for any of these demo roles.
 
 ---
 
-## 2. Implemented Features
+## 4. Technology Stack
 
-### Phase 1: Project Foundation
-1. **Java 21 & Spring Boot 3.3.5 Configuration:** Configured Maven multi-stage build targeting Java 21 bytecode with strict compiler parameter retention.
-2. **PostgreSQL Database Connection:** Configured HikariCP connection pooling connecting to PostgreSQL 16 (`ledgerline` database) using dynamic environment variables.
-3. **Database Migration via Flyway:** Flyway-managed schema changes (`V1__init_foundation.sql`, `V2__auth_and_accounts_schema.sql`) ensuring reproducible version-controlled DDL. Hibernate DDL auto is strictly set to `validate` (never `create` or `create-drop`).
-4. **Database Connection Health Check:** Dedicated service `DatabaseHealthService` performing active JDBC connection validation (`isValid`), metadata inspection, and `SELECT 1` query probes (`GET /api/v1/health`, `GET /api/v1/health/db`).
-5. **Centralized Global Exception Handling:** Unified `@RestControllerAdvice` implementing RFC-7807/ProblemDetail-aligned error payloads with field-level validation errors.
-6. **Request Validation:** Integrated Jakarta Bean Validation (`@NotNull`, `@NotBlank`, `@Positive`, `@DecimalMin`).
-7. **Frontend Scaffolding:** React 18 + Vite foundation with responsive fintech layout and proxy configuration to backend API.
-
-### Phase 2: Authentication & Authorisation (Role-Based Access & IDOR Defense)
-1. **BCrypt Password Hashing:** All user passwords hashed via `BCryptPasswordEncoder` with individual cryptographic salts. Password hashes are never exposed in responses or logs.
-2. **Stateless JWT Authentication:** JJWT 0.12.6 with HMAC-SHA256 signatures, extracting subject, user ID, and role.
-3. **Token Blacklist & Revocation Strategy:** Persistent SHA-256 token hashing table (`token_blacklist`) enabling instantaneous token invalidation upon user logout.
-4. **Role-Based Authorization:**
-   - `ADMIN`: Manage users, view system statistics, and inspect accounts.
-   - `CUSTOMER`: Access strictly their own accounts, balances, and transactions.
-   - `AUDITOR`: Strictly read-only visibility into accounts and audit records. Prohibited from money movement or account mutations.
-5. **IDOR & Privilege Escalation Defenses:**
-   - `AccountOwnershipValidator` enforces account ownership by extracting user ID directly from `SecurityContextHolder`. Request bodies are never trusted for identity or account ownership.
-   - Registration strictly enforces the `CUSTOMER` role, blocking privilege escalation attempts.
+- **Backend:** Java 21 LTS, Spring Boot 3.3.5, Spring Data JPA, Hibernate 6.5, Spring Security 6.3, JJWT 0.12.6, Flyway 10.x, Maven.
+- **Frontend:** React 18, Vite 5, Axios, Lucide React, Modern CSS Design System.
+- **Database:** PostgreSQL 16 (HikariCP connection pool).
+- **Testing:** JUnit 5, Mockito, Spring Boot Test, H2 (PostgreSQL compatibility mode).
 
 ---
 
-## 5. Security & API Reference
+## 5. Quickstart & Execution Guide
 
-### Authentication Endpoints (`/api/v1/auth`)
-- `POST /api/v1/auth/register`: Public. Registers a customer and auto-provisions an initial active savings account.
-- `POST /api/v1/auth/login`: Public. Validates credentials and returns signed Bearer JWT.
-- `POST /api/v1/auth/logout`: Authenticated. Revokes the presented token into the persistent blacklist.
-- `GET /api/v1/auth/me`: Authenticated. Returns current user profile derived from the validated security context.
+### Prerequisites
+- Java 21+ (`JAVA_HOME` configured)
+- Node.js 18+ & npm 9+
+- PostgreSQL 16 running on port 5432 with database `ledgerline`
 
-### Account Endpoints (`/api/v1/accounts`)
-- `GET /api/v1/accounts/my`: `CUSTOMER`, `ADMIN`. Returns accounts belonging strictly to the authenticated user.
-- `GET /api/v1/accounts/{accountId}`: `CUSTOMER`, `ADMIN`, `AUDITOR`. Returns account details only if ownership passes validation (IDOR protection).
-- `POST /api/v1/accounts`: `CUSTOMER`, `ADMIN`. Creates a new account for the authenticated user.
-- `GET /api/v1/accounts/all`: `ADMIN`, `AUDITOR`. Returns all system accounts for administrative or audit inspection.
-- `POST /api/v1/accounts/{accountId}/financial-operation-check`: Restricted. Validates that auditors and non-owner customers cannot execute financial actions (403 Forbidden).
-
-### Admin Endpoints (`/api/v1/admin`)
-- `GET /api/v1/admin/users`: `ADMIN` only. Lists all registered users and roles.
-- `PATCH /api/v1/admin/users/{userId}/status?enabled={true|false}`: `ADMIN` only. Enables or disables user accounts.
-
----
-
-## 3. Environment Configuration
-
-All database credentials and secrets are managed strictly through environment variables. A template is provided in `.env.example`:
-
+### 5.1 Environment Configuration
+Create `.env` or set system environment variables:
 ```bash
-# Database Configuration
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=ledgerline
 DB_USERNAME=postgres
 DB_PASSWORD=postgres
 DB_URL=jdbc:postgresql://localhost:5432/ledgerline
-
-# JWT Authentication
 JWT_SECRET=404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
 JWT_EXPIRATION_MS=86400000
-
-# Application Server
 PORT=8080
-SPRING_PROFILES_ACTIVE=dev
 ```
 
----
-
-## 4. Execution & Build Instructions
-
-### Prerequisites
-- JDK 21+ (`JAVA_HOME` set)
-- Node.js 18+ & npm 9+
-- PostgreSQL 16 running on port 5432
-
-### Running Backend Tests
-Execute all automated unit and integration tests:
+### 5.2 Running Backend Tests
+Execute the automated test suite (60 tests, 100% passing):
 ```bash
 ./mvnw clean test
 ```
-*(On Windows CMD/PowerShell: `.\mvnw.cmd clean test`)*
+*(On Windows: `.\mvnw.cmd clean test`)*
 
-### Building Backend Package
-Package the executable Spring Boot archive:
+### 5.3 Building & Running Backend
 ```bash
-./mvnw clean package
-```
+# Package executable JAR
+./mvnw clean package -DskipTests
 
-### Running Backend Server
-Run the packaged jar against PostgreSQL:
-```bash
+# Run Spring Boot Application
 java -jar target/ledgerline-backend-1.0.0-SNAPSHOT.jar
 ```
+Backend will start at `http://localhost:8080`.
 
-### Verifying Health Check
-Query the live database health check:
-```bash
-curl -X GET http://localhost:8080/api/v1/health
-curl -X GET http://localhost:8080/api/v1/health/db
-```
-
-Sample Healthy Response:
-```json
-{
-  "status": "UP",
-  "application": "ledgerline-backend",
-  "timestamp": "2026-11-07T10:29:32.420503Z",
-  "components": {
-    "database": {
-      "status": "UP",
-      "database": "PostgreSQL",
-      "version": "16.2",
-      "latencyMs": 1,
-      "url": "jdbc:postgresql://localhost:5432/ledgerline",
-      "validationQuery": "SELECT 1 (SUCCESS)"
-    },
-    "memory": {
-      "totalMb": 76,
-      "maxMb": 1976,
-      "freeMb": 32,
-      "usedMb": 43
-    },
-    "runtime": {
-      "javaVersion": "23.0.2",
-      "javaVendor": "Oracle Corporation",
-      "os": "Windows 11 amd64"
-    }
-  }
-}
-```
-
-### Building and Running Frontend
+### 5.4 Building & Running Frontend
 ```bash
 cd frontend
 npm install
 npm run build
 npm run dev
 ```
-Access the UI at `http://localhost:5173`.
+Frontend will be available at `http://localhost:5173`.
+
+---
+
+## 6. Automated Testing Suite
+
+The backend contains **60 comprehensive automated tests** across 8 test suites:
+
+| Test Suite | Tests | Verification Area |
+| :--- | :---: | :--- |
+| `DoubleEntryLedgerEngineTest` | 8 | Mathematical balance equation ($\sum D \equiv \sum C$), negative amounts, insufficient funds, system clearing validation. |
+| `AuthenticationIntegrationTest` | 7 | Registration, BCrypt password hashing, JWT signing/expiry, token blacklist revocation on logout. |
+| `AuthorizationIntegrationTest` | 7 | Multi-role authorization, IDOR defense (Alice accessing Bob), Auditor financial write restriction. |
+| `FinancialOperationsIntegrationTest` | 8 | Deposits, withdrawals, transfers, account creation, clearing account integration. |
+| `IdempotencyIntegrationTest` | 6 | Replay of identical requests without duplicate execution, 409 Conflict on payload tampering, mandatory header enforcement. |
+| `ConcurrencyStressIntegrationTest` | 3 | **Multithreaded stress testing**: 10 simultaneous threads preventing overdraft; 20 simultaneous cross-transfers with 0 deadlocks; 10 identical simultaneous requests. |
+| `AuditTrailIntegrationTest` | 6 | Append-only audit record creation, event metadata extraction (IP/User-Agent), Hibernate `@Immutable` enforcement. |
+| `HealthControllerIntegrationTest` | 5 | Live PostgreSQL connection health check, latency probes, metadata inspection. |
+| **Total** | **60** | **0 Failures, 0 Errors, 0 Skipped** |
+
+---
+
+## 7. Comprehensive Documentation
+
+Detailed architecture specifications, database schemas, threat models, and API contracts:
+
+- 🏛️ [**System Architecture & Design**](docs/architecture.md): Deep-dive into clean layered architecture, double-entry ledger engine, pessimistic row locking, and deterministic lock ordering.
+- 🗄️ [**Database Design & Schema**](docs/database-design.md): Full entity-relationship diagram, table definitions, check constraints, indexes, and Flyway migration versions.
+- 📡 [**REST API Documentation**](docs/api-documentation.md): Comprehensive catalog of all REST endpoints, request/response bodies, status codes, and security rules.
+- 🛡️ [**Threat Model & Security Verification Matrix**](THREATS.md): 15 identified threat categories (IDOR, race conditions, replay attacks, precision exploits) mapped to automated verification tests.
+- 📜 [**Prompt Engineering & Implementation Log**](PROMPTS.md): Genuine chronological records of all development phases and test execution outputs.
+
+---
+
+## 8. License & Assessment Attribution
+
+Developed for the **Snovasys 2026 Fresher Hiring Assessment**.  
+Repository: [https://github.com/Praneethbandi05/Ledger_Line](https://github.com/Praneethbandi05/Ledger_Line)

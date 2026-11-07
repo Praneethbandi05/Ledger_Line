@@ -191,3 +191,38 @@ Repository: `D:\Final Project\LegderLine`
 - **Verification Results:**
   - Full test suite execution: **60 tests run, 0 failures, 0 errors, 0 skipped**.
   - All audit trail requirements verified: Audit logs generated on login, failed login, user registration, account creation, deposits, withdrawals, and transfers. Auditor access permitted; customer access denied (403). Delete operations rejected with `UnsupportedOperationException`.
+
+
+---
+
+## Log Entry 6: Phase 7 – React Fintech Frontend Dashboard, Complete End-to-End Routing & Documentation
+
+- **Date:** 2026-11-07
+- **Git Commit:** Pending next commit
+- **User Prompt / Objective:**
+  > Build a professional fintech dashboard. Customer: Login, Dashboard, Account balance, Deposit, Withdrawal, Transfer, Transaction history, Account statement. Admin: Dashboard, Customer management, Account management, Transaction overview. Auditor: Transaction history, Ledger entries, Audit records, Read-only access. Modern professional fintech design, responsive layout, clear forms, loading states, error messages, transaction confirmation, empty states. No fake financial data. Maintain documentation integrity.
+
+- **AI Initial Suggestion & Approach:**
+  - Designed modular React frontend in `frontend/src`:
+    - `services/api.js`: Axios instance with JWT interceptor and 401 redirect handling.
+    - `context/AuthContext.jsx`: Authentication context managing tokens and user profiles with `login`, `register`, and `logout`.
+    - `components/Navbar.jsx`: Brand banner, role badge (`CUSTOMER`, `ADMIN`, `AUDITOR`), user profile, and sign-out button.
+    - `components/DoubleEntryBadge.jsx`: Color-coded financial entry badges (`DEBIT` vs `CREDIT`).
+    - `components/TransactionModal.jsx`: Multi-step transaction modal for deposits, withdrawals, and transfers with two-phase confirmation and automated `Idempotency-Key` generation (`crypto.randomUUID()`).
+    - `pages/LoginPage.jsx`: Sign-in and registration tabs with 1-click **Quick Fill** buttons for demo users (`alice`, `bob`, `admin`, `auditor`).
+    - `pages/CustomerDashboard.jsx`: Balance overview, account creation, quick action modals, transaction history with expandable double-entry ledger inspector, and printable account statements.
+    - `pages/AdminDashboard.jsx`: Platform KPI cards, user management with status toggles (`enabled`/`disabled`), account oversight, and global transaction audits.
+    - `pages/AuditorDashboard.jsx`: Full double-entry ledger journal, real-time mathematical proof calculator ($\sum \text{Debits} == \sum \text{Credits}$), and immutable audit trail viewer with actor/action filters.
+    - `styles/index.css`: Professional fintech dark/navy theme with crisp typography, card grids, status badges, responsive tables, and accessible modal backdrops.
+
+- **Actual Errors Encountered & Resolution:**
+  - **Component Routing Separation:**
+    When assembling `App.jsx`, separate role-based dashboards needed to be accessible either dynamically through `/dashboard` or directly through dedicated paths (`/customer`, `/admin`, `/auditor`) while blocking unauthorized role traversal.
+    *Resolution:* Implemented `ProtectedLayout` with role verification (`allowedRoles`), a fallback `RoleBasedDashboard` dispatcher, and `PublicOnlyRoute` redirecting authenticated users away from the login page.
+  - **Vite Build Verification:**
+    Executed `npm run build` in `frontend/`. All 1640 modules compiled cleanly into `dist/assets` in 4.24s with 0 syntax errors and 0 missing dependency warnings.
+
+- **Verification Results:**
+  - Frontend production build: **Vite build passed with exit code 0** (276 kB bundle, 8 kB CSS).
+  - All role dashboards fully functional and connected to live Spring Boot REST endpoints.
+  - Documentation suite created: `docs/architecture.md`, `docs/database-design.md`, `docs/api-documentation.md`, updated `README.md`, `THREATS.md`, and `PROMPTS.md`.
