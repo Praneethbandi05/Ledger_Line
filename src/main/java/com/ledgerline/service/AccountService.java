@@ -24,16 +24,19 @@ public class AccountService {
     private final UserRepository userRepository;
     private final SecurityContextHelper securityContextHelper;
     private final AccountOwnershipValidator accountOwnershipValidator;
+    private final AuditService auditService;
 
     public AccountService(
             AccountRepository accountRepository,
             UserRepository userRepository,
             SecurityContextHelper securityContextHelper,
-            AccountOwnershipValidator accountOwnershipValidator) {
+            AccountOwnershipValidator accountOwnershipValidator,
+            AuditService auditService) {
         this.accountRepository = accountRepository;
         this.userRepository = userRepository;
         this.securityContextHelper = securityContextHelper;
         this.accountOwnershipValidator = accountOwnershipValidator;
+        this.auditService = auditService;
     }
 
     @Transactional(readOnly = true)
@@ -81,6 +84,10 @@ public class AccountService {
         );
 
         Account saved = accountRepository.save(account);
+        auditService.recordEvent(currentUser.getUsername(), currentUser.getRole().name(), "ACCOUNT_CREATE",
+                "ACCOUNT", saved.getAccountNumber(), "SUCCESS",
+                "Account created of type " + saved.getAccountType() + " with currency " + saved.getCurrency());
+
         return new AccountResponse(saved);
     }
 

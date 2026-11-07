@@ -6,6 +6,7 @@ import com.ledgerline.dto.transaction.LedgerEntryResponse;
 import com.ledgerline.dto.transaction.TransactionResponse;
 import com.ledgerline.dto.transaction.TransferRequest;
 import com.ledgerline.dto.transaction.WithdrawalRequest;
+import com.ledgerline.exception.MissingIdempotencyKeyException;
 import com.ledgerline.service.TransactionService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -19,6 +20,8 @@ import java.util.List;
 @RequestMapping("/api/v1/transactions")
 public class TransactionController {
 
+    public static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
+
     private final TransactionService transactionService;
 
     public TransactionController(TransactionService transactionService) {
@@ -27,25 +30,49 @@ public class TransactionController {
 
     @PostMapping("/deposit")
     @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN', 'AUDITOR')")
-    public ResponseEntity<ApiResponse<TransactionResponse>> deposit(@Valid @RequestBody DepositRequest request) {
-        TransactionResponse response = transactionService.deposit(request);
+    public ResponseEntity<ApiResponse<TransactionResponse>> deposit(
+            @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey,
+            @Valid @RequestBody DepositRequest request) {
+
+        if (idempotencyKey == null || idempotencyKey.trim().isEmpty()) {
+            throw new MissingIdempotencyKeyException("Missing required 'Idempotency-Key' HTTP header for financial operations");
+        }
+
+        TransactionResponse response = transactionService.deposit(request, idempotencyKey.trim());
         return ResponseEntity.status(HttpStatus.CREATED)
+                .header(IDEMPOTENCY_KEY_HEADER, idempotencyKey.trim())
                 .body(ApiResponse.success("Deposit completed successfully", response));
     }
 
     @PostMapping("/withdraw")
     @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN', 'AUDITOR')")
-    public ResponseEntity<ApiResponse<TransactionResponse>> withdraw(@Valid @RequestBody WithdrawalRequest request) {
-        TransactionResponse response = transactionService.withdraw(request);
+    public ResponseEntity<ApiResponse<TransactionResponse>> withdraw(
+            @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey,
+            @Valid @RequestBody WithdrawalRequest request) {
+
+        if (idempotencyKey == null || idempotencyKey.trim().isEmpty()) {
+            throw new MissingIdempotencyKeyException("Missing required 'Idempotency-Key' HTTP header for financial operations");
+        }
+
+        TransactionResponse response = transactionService.withdraw(request, idempotencyKey.trim());
         return ResponseEntity.status(HttpStatus.CREATED)
+                .header(IDEMPOTENCY_KEY_HEADER, idempotencyKey.trim())
                 .body(ApiResponse.success("Withdrawal completed successfully", response));
     }
 
     @PostMapping("/transfer")
     @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN', 'AUDITOR')")
-    public ResponseEntity<ApiResponse<TransactionResponse>> transfer(@Valid @RequestBody TransferRequest request) {
-        TransactionResponse response = transactionService.transfer(request);
+    public ResponseEntity<ApiResponse<TransactionResponse>> transfer(
+            @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey,
+            @Valid @RequestBody TransferRequest request) {
+
+        if (idempotencyKey == null || idempotencyKey.trim().isEmpty()) {
+            throw new MissingIdempotencyKeyException("Missing required 'Idempotency-Key' HTTP header for financial operations");
+        }
+
+        TransactionResponse response = transactionService.transfer(request, idempotencyKey.trim());
         return ResponseEntity.status(HttpStatus.CREATED)
+                .header(IDEMPOTENCY_KEY_HEADER, idempotencyKey.trim())
                 .body(ApiResponse.success("Transfer completed successfully", response));
     }
 

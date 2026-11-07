@@ -40,6 +40,7 @@ public class AuthService {
     private final JwtTokenProvider jwtTokenProvider;
     private final TokenBlacklistService tokenBlacklistService;
     private final SecurityContextHelper securityContextHelper;
+    private final AuditService auditService;
 
     public AuthService(
             UserRepository userRepository,
@@ -48,7 +49,8 @@ public class AuthService {
             AuthenticationManager authenticationManager,
             JwtTokenProvider jwtTokenProvider,
             TokenBlacklistService tokenBlacklistService,
-            SecurityContextHelper securityContextHelper) {
+            SecurityContextHelper securityContextHelper,
+            AuditService auditService) {
         this.userRepository = userRepository;
         this.accountRepository = accountRepository;
         this.passwordEncoder = passwordEncoder;
@@ -56,6 +58,7 @@ public class AuthService {
         this.jwtTokenProvider = jwtTokenProvider;
         this.tokenBlacklistService = tokenBlacklistService;
         this.securityContextHelper = securityContextHelper;
+        this.auditService = auditService;
     }
 
     @Transactional
@@ -95,6 +98,8 @@ public class AuthService {
         accountRepository.save(initialAccount);
 
         log.info("Registered new customer user {} with account {}", savedUser.getUsername(), initialAccountNumber);
+        auditService.recordEvent(savedUser.getUsername(), savedUser.getRole().name(), "USER_REGISTER",
+                "USER", savedUser.getUsername(), "SUCCESS", "Customer registered with initial account " + initialAccountNumber);
 
         String token = jwtTokenProvider.generateTokenFromUser(savedUser);
         UserProfileResponse profile = new UserProfileResponse(
@@ -127,9 +132,14 @@ public class AuthService {
             );
 
             log.info("User {} successfully authenticated with role {}", userDetails.getUsername(), userDetails.getRole());
+            auditService.recordEvent(userDetails.getUsername(), userDetails.getRole().name(), "LOGIN_SUCCESS",
+                    "AUTH", userDetails.getUsername(), "SUCCESS", "User authenticated successfully");
+
             return new AuthResponse(token, jwtTokenProvider.getExpirationMs(), profile);
         } catch (BadCredentialsException e) {
             log.warn("Failed login attempt for username: {}", request.getUsername());
+            auditService.recordSecurityEvent(request.getUsername().trim(), "ANONYMOUS", "LOGIN_FAILED",
+                    "AUTH", request.getUsername().trim(), "FAILURE", "Invalid credentials provided");
             throw new LedgerLineException("Invalid username or password", HttpStatus.UNAUTHORIZED);
         }
     }
@@ -138,29 +148,38 @@ public class AuthService {
     public void logout(String bearerToken) {
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
             String token = bearerToken.substring(7);
-            tokenBlacklistService.blacklistToken(token);
+            if (jwtTokenProvider.validateToken(token)) {
+                String username = jwtTokenProvider.getUsernameFromToken(token);
+                tokenBlacklistService.blacklistToken(token);
+                auditService.recordEvent(username, "USER", "LOGOUT",
+                        "AUTH", username, "SUCCESS", "User logged out; JWT invalidated");
+                log.info("User {} successfully logged out; token blacklisted", username);
+            }
         }
     }
 
     @Transactional(readOnly = true)
     public UserProfileResponse getCurrentUserProfile() {
-        CustomUserDetails userDetails = securityContextHelper.getCurrentUserDetails();
+        String username = securityContextHelper.getCurrentUsername();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new LedgerLineException("Authenticated user not found", HttpStatus.NOT_FOUND));
+
         return new UserProfileResponse(
-                userDetails.getId(),
-                userDetails.getUsername(),
-                userDetails.getEmail(),
-                userDetails.getFullName(),
-                userDetails.getRole()
+                user.getId(),
+                user.getUsername(),
+                user.getEmail(),
+                user.getFullName(),
+                user.getRole()
         );
     }
 
     private String generateUniqueAccountNumber() {
         SecureRandom random = new SecureRandom();
-        String candidate;
+        String accountNumber;
         do {
-            int randomPart = 100000 + random.nextInt(900000);
-            candidate = "ACC-" + randomPart;
-        } while (accountRepository.existsByAccountNumber(candidate));
-        return candidate;
+            int randomPart = 10000000 + random.nextInt(90000000);
+            accountNumber = "ACC-" + randomPart;
+        } while (accountRepository.existsByAccountNumber(accountNumber));
+        return accountNumber;
     }
 }

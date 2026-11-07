@@ -124,3 +124,70 @@ Repository: `D:\Final Project\LegderLine`
 - **Verification Results:**
   - Full test suite execution: **45 tests run, 0 failures, 0 errors, 0 skipped**.
   - All financial tests verified: Deposit with balanced clearing records, Withdrawal with balanced clearing records, Transfer with deterministic locking, Insufficient balance rejection (balance unchanged), Negative and zero amount rejection, Self-transfer rejection, IDOR rejection on other customer accounts, and Auditor write operation prevention.
+
+
+---
+
+## Log Entry 4: Phase 4 & Phase 5 – Idempotency Engine, Race-Condition Overdraft Prevention & Deterministic Concurrency
+
+- **Date:** 2026-11-07
+- **Git Commit:** Pending next commit
+- **User Prompt / Objective:**
+  > Implement Phase 4 & Phase 5: Financial Idempotency and Concurrency Stress Testing. Require an Idempotency-Key header on money movement APIs. Persist keys in PostgreSQL with unique database constraints. Return original result on identical payload and reject key reuse with modified payloads. Guarantee atomic key and ledger processing. Use pessimistic row locking to prevent concurrent withdrawals from overspending. Eliminate circular wait deadlocks on cross-transfers through deterministic lock ordering. Write genuinely multithreaded stress tests.
+
+- **AI Initial Suggestion & Approach:**
+  - Created Flyway migration `V4__idempotency_schema.sql` defining `idempotency_keys` table with SHA-256 payload hash and unique constraint.
+  - Implemented `IdempotencyPayloadHasher` to compute canonical SHA-256 digests of request payloads.
+  - Embedded double-checked idempotency verification into `TransactionService` (`deposit`, `withdraw`, `transfer`) within atomic `@Transactional` boundaries.
+  - Implemented multithreaded test suite `ConcurrencyStressIntegrationTest` simulating 10 concurrent threads racing to withdraw $100 against a $500 balance, 20 concurrent cross-transfers (Alice <-> Bob), and 10 simultaneous identical deposit requests with the same key.
+
+- **Actual Errors Encountered:**
+  - **L1 Cache / Stale Entity Reading Under Lock Ordering:**
+    In `testConcurrentCrossTransfersDeadlockFree`, Alice's balance was expected to be $1000.00 after 10 simultaneous transfers to Bob and 10 simultaneous transfers from Bob, but was $950.00.
+    *Root Cause:* In `TransactionService.transfer()`, the pre-lookup `accountRepository.findByAccountNumber()` was loading the full `Account` entity into the Hibernate first-level cache (L1 cache) *before* acquiring the pessimistic row lock. When the second thread unblocked after the lock, JPA returned the stale entity already in memory instead of reading the updated balance from the database row!
+  - **Connection Pool Exhaustion with Nested Transactions:**
+    When running all concurrent tests together, threads were timing out with `java.sql.SQLException: Connection is closed` during transaction rollback.
+    *Root Cause:* HikariCP default pool size was 10, and concurrent threads were saturating the pool.
+
+- **Technical Correction & Resolution:**
+  - Added query `findIdByAccountNumber` to `AccountRepository` that returns only the primitive `Long` ID without hydrating the `Account` entity into the L1 cache.
+  - In `TransactionService.transfer()`, deterministic lock ordering compares the primitive IDs and locks via `findByIdWithLock(id)`. Because the entity is hydrated for the first time *under the pessimistic lock*, it always reflects the freshest committed database state.
+  - Configured HikariCP `maximum-pool-size: 30` in test configuration and `20` in production configuration.
+  - Re-ran tests: All 10 simultaneous identical requests executed exactly once, all 10 concurrent overdraft attempts allowed exactly 5 and rejected 5, and all 20 simultaneous cross-transfers completed with 0 deadlocks and perfectly invariant balances.
+
+- **Verification Results:**
+  - Dedicated test suite `ConcurrencyStressIntegrationTest`: **3 tests run, 0 failures, 0 errors, 0 skipped**.
+  - Dedicated test suite `IdempotencyIntegrationTest`: **6 tests run, 0 failures, 0 errors, 0 skipped**.
+
+
+---
+
+## Log Entry 5: Phase 6 – Immutable Append-Only Audit Trail & Authorization Boundary Audit
+
+- **Date:** 2026-11-07
+- **Git Commit:** Pending next commit
+- **User Prompt / Objective:**
+  > Implement Phase 6: Append-Only Audit Trail. Create append-only audit records recording Actor, Action, Timestamp, relevant account/transaction ID, Result, and request metadata (IP, user agent). Prevent application users from modifying or deleting audit records using database and application restrictions. Provide auditor-only inspection APIs. Write automated tests verifying audit log creation and immutability.
+
+- **AI Initial Suggestion & Approach:**
+  - Created Flyway migration `V5__audit_trail_schema.sql` defining `audit_logs` table with indices on `actor_username`, `action`, `resource_id`, and `created_at`.
+  - Implemented `AuditLog` entity annotated with `@org.hibernate.annotations.Immutable` and `updatable = false` on all columns.
+  - Created `AuditLogRepository` overriding `delete()`, `deleteById()`, and `deleteAll()` to throw `UnsupportedOperationException("Audit records are strictly append-only and cannot be deleted")`.
+  - Implemented `AuditService` with automatic client IP and User-Agent resolution from `RequestContextHolder`.
+  - Created `AuditController` exposing `/api/v1/audit/logs`, `/api/v1/audit/logs/actor/{username}`, and `/api/v1/audit/logs/resource/{resourceId}` protected by `@PreAuthorize("hasAnyRole('AUDITOR', 'ADMIN')")`.
+
+- **Actual Errors Encountered:**
+  - **Transaction Rollback Masking Failed Login Audit Entries:**
+    In `AuditTrailIntegrationTest.shouldRecordAuditLogOnFailedLogin`, the assertion failed because `auditLogRepository.findByActionOrderByCreatedAtDesc("LOGIN_FAILED")` returned empty.
+    *Root Cause:* When `AuthService.login()` threw `BadCredentialsException`, the controller/service transaction was marked for rollback, causing the audit entry recorded in the same transaction to roll back as well!
+  - Conversely, using `Propagation.REQUIRES_NEW` unconditionally for all events caused multithreaded financial operations to take 2 connections per thread, risking pool starvation.
+
+- **Technical Correction & Resolution:**
+  - Split audit recording into two strategic paths:
+    1. Standard `recordEvent()` for successful transactions: joins the active transaction so financial state and audit entries commit atomically in 1 connection.
+    2. `recordSecurityEvent()` annotated with `@Transactional(propagation = Propagation.REQUIRES_NEW)` for security failures, bad logins, and access denials: commits in its own independent transaction so the security log is preserved even when the calling transaction rolls back.
+  - Corrected test credentials to use seeded BCrypt password `Customer@123`.
+
+- **Verification Results:**
+  - Full test suite execution: **60 tests run, 0 failures, 0 errors, 0 skipped**.
+  - All audit trail requirements verified: Audit logs generated on login, failed login, user registration, account creation, deposits, withdrawals, and transfers. Auditor access permitted; customer access denied (403). Delete operations rejected with `UnsupportedOperationException`.

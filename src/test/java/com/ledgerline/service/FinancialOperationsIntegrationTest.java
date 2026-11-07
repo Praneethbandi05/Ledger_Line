@@ -22,6 +22,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.*;
@@ -93,6 +94,7 @@ class FinancialOperationsIntegrationTest {
 
         mockMvc.perform(post("/api/v1/transactions/deposit")
                         .header("Authorization", "Bearer " + aliceToken)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -112,6 +114,7 @@ class FinancialOperationsIntegrationTest {
 
         mockMvc.perform(post("/api/v1/transactions/withdraw")
                         .header("Authorization", "Bearer " + aliceToken)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -131,6 +134,7 @@ class FinancialOperationsIntegrationTest {
 
         mockMvc.perform(post("/api/v1/transactions/withdraw")
                         .header("Authorization", "Bearer " + aliceToken)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnprocessableEntity())
@@ -149,6 +153,7 @@ class FinancialOperationsIntegrationTest {
 
         mockMvc.perform(post("/api/v1/transactions/transfer")
                         .header("Authorization", "Bearer " + aliceToken)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isCreated())
@@ -174,6 +179,7 @@ class FinancialOperationsIntegrationTest {
 
         mockMvc.perform(post("/api/v1/transactions/transfer")
                         .header("Authorization", "Bearer " + aliceToken)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnprocessableEntity())
@@ -195,6 +201,7 @@ class FinancialOperationsIntegrationTest {
 
         mockMvc.perform(post("/api/v1/transactions/transfer")
                         .header("Authorization", "Bearer " + aliceToken)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnprocessableEntity())
@@ -209,6 +216,7 @@ class FinancialOperationsIntegrationTest {
 
         mockMvc.perform(post("/api/v1/transactions/withdraw")
                         .header("Authorization", "Bearer " + bobToken)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden())
@@ -227,6 +235,7 @@ class FinancialOperationsIntegrationTest {
 
         mockMvc.perform(post("/api/v1/transactions/transfer")
                         .header("Authorization", "Bearer " + bobToken)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden())
@@ -247,6 +256,7 @@ class FinancialOperationsIntegrationTest {
 
         mockMvc.perform(post("/api/v1/transactions/deposit")
                         .header("Authorization", "Bearer " + auditorToken)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden())
@@ -261,6 +271,7 @@ class FinancialOperationsIntegrationTest {
 
         mockMvc.perform(post("/api/v1/transactions/withdraw")
                         .header("Authorization", "Bearer " + auditorToken)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden())
@@ -275,6 +286,7 @@ class FinancialOperationsIntegrationTest {
 
         mockMvc.perform(post("/api/v1/transactions/deposit")
                         .header("Authorization", "Bearer " + aliceToken)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(negativeDeposit)))
                 .andExpect(status().isBadRequest())
@@ -284,6 +296,7 @@ class FinancialOperationsIntegrationTest {
 
         mockMvc.perform(post("/api/v1/transactions/withdraw")
                         .header("Authorization", "Bearer " + aliceToken)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(zeroWithdrawal)))
                 .andExpect(status().isBadRequest())
@@ -297,6 +310,7 @@ class FinancialOperationsIntegrationTest {
         DepositRequest deposit = new DepositRequest("ACC-ALICE-01", new BigDecimal("100.00"), "Setup deposit");
         mockMvc.perform(post("/api/v1/transactions/deposit")
                         .header("Authorization", "Bearer " + aliceToken)
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(deposit)))
                 .andExpect(status().isCreated());

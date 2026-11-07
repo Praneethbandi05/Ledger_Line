@@ -1,11 +1,14 @@
 package com.ledgerline.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.ledgerline.dto.transaction.DepositRequest;
 import com.ledgerline.dto.transaction.LedgerEntryResponse;
 import com.ledgerline.dto.transaction.TransactionResponse;
 import com.ledgerline.dto.transaction.TransferRequest;
 import com.ledgerline.dto.transaction.WithdrawalRequest;
 import com.ledgerline.entity.Account;
+import com.ledgerline.entity.IdempotencyKey;
 import com.ledgerline.entity.LedgerEntry;
 import com.ledgerline.entity.Transaction;
 import com.ledgerline.entity.User;
@@ -13,14 +16,18 @@ import com.ledgerline.enums.AccountStatus;
 import com.ledgerline.enums.TransactionStatus;
 import com.ledgerline.enums.TransactionType;
 import com.ledgerline.exception.BusinessRuleViolationException;
+import com.ledgerline.exception.IdempotencyConflictException;
+import com.ledgerline.exception.MissingIdempotencyKeyException;
 import com.ledgerline.exception.ResourceNotFoundException;
 import com.ledgerline.ledger.DoubleEntryLedgerEngine;
 import com.ledgerline.repository.AccountRepository;
+import com.ledgerline.repository.IdempotencyKeyRepository;
 import com.ledgerline.repository.LedgerEntryRepository;
 import com.ledgerline.repository.TransactionRepository;
 import com.ledgerline.repository.UserRepository;
 import com.ledgerline.security.AccountOwnershipValidator;
 import com.ledgerline.security.SecurityContextHelper;
+import com.ledgerline.util.IdempotencyPayloadHasher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
@@ -31,8 +38,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class TransactionService {
@@ -46,39 +55,65 @@ public class TransactionService {
     private final LedgerEntryRepository ledgerEntryRepository;
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
+    private final IdempotencyKeyRepository idempotencyKeyRepository;
     private final DoubleEntryLedgerEngine ledgerEngine;
     private final SecurityContextHelper securityContextHelper;
     private final AccountOwnershipValidator accountOwnershipValidator;
+    private final ObjectMapper objectMapper;
+    private final AuditService auditService;
 
     public TransactionService(
             TransactionRepository transactionRepository,
             LedgerEntryRepository ledgerEntryRepository,
             AccountRepository accountRepository,
             UserRepository userRepository,
+            IdempotencyKeyRepository idempotencyKeyRepository,
             DoubleEntryLedgerEngine ledgerEngine,
             SecurityContextHelper securityContextHelper,
-            AccountOwnershipValidator accountOwnershipValidator) {
+            AccountOwnershipValidator accountOwnershipValidator,
+            ObjectMapper objectMapper,
+            AuditService auditService) {
         this.transactionRepository = transactionRepository;
         this.ledgerEntryRepository = ledgerEntryRepository;
         this.accountRepository = accountRepository;
         this.userRepository = userRepository;
+        this.idempotencyKeyRepository = idempotencyKeyRepository;
         this.ledgerEngine = ledgerEngine;
         this.securityContextHelper = securityContextHelper;
         this.accountOwnershipValidator = accountOwnershipValidator;
+        this.objectMapper = objectMapper;
+        this.auditService = auditService;
     }
 
     /**
      * Executes an authorized deposit into a customer account.
      * Guaranteed double-entry balanced with system deposit clearing.
+     * Guaranteed idempotent using persistent database records and payload hash matching.
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public TransactionResponse deposit(DepositRequest request) {
+    public TransactionResponse deposit(DepositRequest request, String idempotencyKey) {
+        validateIdempotencyKey(idempotencyKey);
+        String cleanKey = idempotencyKey.trim();
+        String requestHash = IdempotencyPayloadHasher.computeHash(request, objectMapper);
+
+        // Fast-path idempotency replay check before acquiring locks
+        Optional<TransactionResponse> cached = checkExistingIdempotency(cleanKey, requestHash);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
+
         validatePositiveAmount(request.getAmount());
         BigDecimal amount = request.getAmount().setScale(2, RoundingMode.HALF_EVEN);
 
         // Lock customer account
         Account customerAccount = accountRepository.findByAccountNumberWithLock(request.getAccountNumber().trim())
                 .orElseThrow(() -> new ResourceNotFoundException("Account not found: " + request.getAccountNumber()));
+
+        // Double-check idempotency under lock in case of concurrent execution
+        cached = checkExistingIdempotency(cleanKey, requestHash);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
 
         // Enforce account write access & auditor restriction
         accountOwnershipValidator.validateAccountWriteAccess(customerAccount);
@@ -121,21 +156,45 @@ public class TransactionService {
         log.info("Deposit COMPLETED: Reference={}, Account={}, Amount=${}",
                 reference, customerAccount.getAccountNumber(), amount);
 
-        return new TransactionResponse(completedTx);
+        TransactionResponse response = new TransactionResponse(completedTx);
+        recordIdempotency(cleanKey, requestHash, "/api/v1/transactions/deposit", response);
+
+        auditService.recordEvent(currentUser.getUsername(), currentUser.getRole().name(), "DEPOSIT",
+                "ACCOUNT", customerAccount.getAccountNumber(), "SUCCESS",
+                String.format("Deposit of $%s into account %s [Reference: %s]", amount, customerAccount.getAccountNumber(), reference));
+
+        return response;
     }
 
     /**
      * Executes an authorized withdrawal from a customer account.
      * Guaranteed double-entry balanced with system withdrawal clearing.
+     * Guaranteed idempotent using persistent database records and payload hash matching.
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public TransactionResponse withdraw(WithdrawalRequest request) {
+    public TransactionResponse withdraw(WithdrawalRequest request, String idempotencyKey) {
+        validateIdempotencyKey(idempotencyKey);
+        String cleanKey = idempotencyKey.trim();
+        String requestHash = IdempotencyPayloadHasher.computeHash(request, objectMapper);
+
+        // Fast-path check
+        Optional<TransactionResponse> cached = checkExistingIdempotency(cleanKey, requestHash);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
+
         validatePositiveAmount(request.getAmount());
         BigDecimal amount = request.getAmount().setScale(2, RoundingMode.HALF_EVEN);
 
         // Lock customer account
         Account customerAccount = accountRepository.findByAccountNumberWithLock(request.getAccountNumber().trim())
                 .orElseThrow(() -> new ResourceNotFoundException("Account not found: " + request.getAccountNumber()));
+
+        // Double check under lock
+        cached = checkExistingIdempotency(cleanKey, requestHash);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
 
         // Enforce ownership: only the owner or an admin can withdraw
         accountOwnershipValidator.validateAccountWriteAccess(customerAccount);
@@ -178,15 +237,33 @@ public class TransactionService {
         log.info("Withdrawal COMPLETED: Reference={}, Account={}, Amount=${}",
                 reference, customerAccount.getAccountNumber(), amount);
 
-        return new TransactionResponse(completedTx);
+        TransactionResponse response = new TransactionResponse(completedTx);
+        recordIdempotency(cleanKey, requestHash, "/api/v1/transactions/withdraw", response);
+
+        auditService.recordEvent(currentUser.getUsername(), currentUser.getRole().name(), "WITHDRAWAL",
+                "ACCOUNT", customerAccount.getAccountNumber(), "SUCCESS",
+                String.format("Withdrawal of $%s from account %s [Reference: %s]", amount, customerAccount.getAccountNumber(), reference));
+
+        return response;
     }
 
     /**
      * Executes an authorized internal transfer between two accounts.
      * Employs deterministic lock ordering on account IDs to eliminate deadlocks.
+     * Guaranteed idempotent using persistent database records and payload hash matching.
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    public TransactionResponse transfer(TransferRequest request) {
+    public TransactionResponse transfer(TransferRequest request, String idempotencyKey) {
+        validateIdempotencyKey(idempotencyKey);
+        String cleanKey = idempotencyKey.trim();
+        String requestHash = IdempotencyPayloadHasher.computeHash(request, objectMapper);
+
+        // Fast-path check
+        Optional<TransactionResponse> cached = checkExistingIdempotency(cleanKey, requestHash);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
+
         validatePositiveAmount(request.getAmount());
         BigDecimal amount = request.getAmount().setScale(2, RoundingMode.HALF_EVEN);
 
@@ -197,31 +274,37 @@ public class TransactionService {
             throw new BusinessRuleViolationException("Cannot transfer funds to the same account: " + sourceAccNum);
         }
 
-        // Preliminary lookup to determine deterministic locking order
-        Account preSource = accountRepository.findByAccountNumber(sourceAccNum)
+        // Determine deterministic locking order by primary key ID without hydrating entities into persistence context
+        Long sourceId = accountRepository.findIdByAccountNumber(sourceAccNum)
                 .orElseThrow(() -> new ResourceNotFoundException("Source account not found: " + sourceAccNum));
-        Account preDest = accountRepository.findByAccountNumber(destAccNum)
+        Long destId = accountRepository.findIdByAccountNumber(destAccNum)
                 .orElseThrow(() -> new ResourceNotFoundException("Destination account not found: " + destAccNum));
-
-        // Enforce ownership: only the owner or an admin can transfer FROM the source account
-        accountOwnershipValidator.validateAccountWriteAccess(preSource);
-        validateAccountIsActive(preSource);
-        validateAccountIsActive(preDest);
-
-        if (!preSource.getCurrency().equalsIgnoreCase(preDest.getCurrency())) {
-            throw new BusinessRuleViolationException(
-                    "Cross-currency transfers are currently unsupported (" + preSource.getCurrency() + " to " + preDest.getCurrency() + ")");
-        }
 
         // DETERMINISTIC LOCKING: Lock the account with the smaller ID first to prevent deadlocks
         Account sourceAccount;
         Account destinationAccount;
-        if (preSource.getId() < preDest.getId()) {
-            sourceAccount = accountRepository.findByIdWithLock(preSource.getId()).orElseThrow();
-            destinationAccount = accountRepository.findByIdWithLock(preDest.getId()).orElseThrow();
+        if (sourceId < destId) {
+            sourceAccount = accountRepository.findByIdWithLock(sourceId).orElseThrow();
+            destinationAccount = accountRepository.findByIdWithLock(destId).orElseThrow();
         } else {
-            destinationAccount = accountRepository.findByIdWithLock(preDest.getId()).orElseThrow();
-            sourceAccount = accountRepository.findByIdWithLock(preSource.getId()).orElseThrow();
+            destinationAccount = accountRepository.findByIdWithLock(destId).orElseThrow();
+            sourceAccount = accountRepository.findByIdWithLock(sourceId).orElseThrow();
+        }
+
+        // Enforce ownership: only the owner or an admin can transfer FROM the source account
+        accountOwnershipValidator.validateAccountWriteAccess(sourceAccount);
+        validateAccountIsActive(sourceAccount);
+        validateAccountIsActive(destinationAccount);
+
+        if (!sourceAccount.getCurrency().equalsIgnoreCase(destinationAccount.getCurrency())) {
+            throw new BusinessRuleViolationException(
+                    "Cross-currency transfers are currently unsupported (" + sourceAccount.getCurrency() + " to " + destinationAccount.getCurrency() + ")");
+        }
+
+        // Double check under lock
+        cached = checkExistingIdempotency(cleanKey, requestHash);
+        if (cached.isPresent()) {
+            return cached.get();
         }
 
         User currentUser = getCurrentAuthenticatedUser();
@@ -257,27 +340,33 @@ public class TransactionService {
         log.info("Transfer COMPLETED: Reference={}, From={}, To={}, Amount=${}",
                 reference, sourceAccount.getAccountNumber(), destinationAccount.getAccountNumber(), amount);
 
-        return new TransactionResponse(completedTx);
+        TransactionResponse response = new TransactionResponse(completedTx);
+        recordIdempotency(cleanKey, requestHash, "/api/v1/transactions/transfer", response);
+
+        auditService.recordEvent(currentUser.getUsername(), currentUser.getRole().name(), "TRANSFER",
+                "ACCOUNT", sourceAccount.getAccountNumber(), "SUCCESS",
+                String.format("Transfer of $%s from %s to %s [Reference: %s]",
+                        amount, sourceAccount.getAccountNumber(), destinationAccount.getAccountNumber(), reference));
+
+        return response;
     }
 
-    @Transactional(readOnly = true)
-    public TransactionResponse getTransactionByReference(String reference) {
-        Transaction tx = transactionRepository.findByReference(reference)
-                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found with reference: " + reference));
-
-        validateTransactionReadAccess(tx);
-        return new TransactionResponse(tx);
-    }
-
+    /**
+     * Retrieves transactions for the authenticated customer.
+     */
     @Transactional(readOnly = true)
     public List<TransactionResponse> getMyTransactions() {
-        Long currentUserId = securityContextHelper.getCurrentUserId();
-        return transactionRepository.findByUserIdOrderByCreatedAtDesc(currentUserId)
-                .stream()
-                .map(TransactionResponse::new)
-                .toList();
+        String username = securityContextHelper.getCurrentUsername();
+        User currentUser = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
+
+        List<Transaction> transactions = transactionRepository.findByUserIdOrderByCreatedAtDesc(currentUser.getId());
+        return transactions.stream().map(TransactionResponse::new).toList();
     }
 
+    /**
+     * Retrieves transactions for a specific account, enforcing customer ownership.
+     */
     @Transactional(readOnly = true)
     public List<TransactionResponse> getAccountTransactions(Long accountId) {
         Account account = accountRepository.findById(accountId)
@@ -285,12 +374,36 @@ public class TransactionService {
 
         accountOwnershipValidator.validateAccountReadAccess(account);
 
-        return transactionRepository.findByAccountIdOrderByCreatedAtDesc(accountId)
-                .stream()
-                .map(TransactionResponse::new)
-                .toList();
+        List<Transaction> transactions = transactionRepository.findByAccountIdOrderByCreatedAtDesc(accountId);
+        return transactions.stream().map(TransactionResponse::new).toList();
     }
 
+    /**
+     * Retrieves a single transaction by reference, enforcing ownership/auditor checks.
+     */
+    @Transactional(readOnly = true)
+    public TransactionResponse getTransactionByReference(String reference) {
+        Transaction tx = transactionRepository.findByReference(reference)
+                .orElseThrow(() -> new ResourceNotFoundException("Transaction not found: " + reference));
+
+        boolean isAuditorOrAdmin = securityContextHelper.isAuditor() || securityContextHelper.isAdmin();
+        if (!isAuditorOrAdmin) {
+            String currentUsername = securityContextHelper.getCurrentUsername();
+            boolean isInitiator = tx.getInitiatedBy() != null && tx.getInitiatedBy().getUsername().equalsIgnoreCase(currentUsername);
+            boolean isSourceOwner = tx.getSourceAccount() != null && tx.getSourceAccount().getUser().getUsername().equalsIgnoreCase(currentUsername);
+            boolean isDestOwner = tx.getDestinationAccount() != null && tx.getDestinationAccount().getUser().getUsername().equalsIgnoreCase(currentUsername);
+
+            if (!isInitiator && !isSourceOwner && !isDestOwner) {
+                throw new AccessDeniedException("Access denied: You do not have permission to view transaction " + reference);
+            }
+        }
+
+        return new TransactionResponse(tx);
+    }
+
+    /**
+     * Auditor and Admin: View all transactions across the platform.
+     */
     @Transactional(readOnly = true)
     public List<TransactionResponse> getAllTransactionsForAuditorOrAdmin() {
         return transactionRepository.findAllByOrderByCreatedAtDesc()
@@ -299,6 +412,9 @@ public class TransactionService {
                 .toList();
     }
 
+    /**
+     * Auditor and Admin: View full double-entry ledger entries.
+     */
     @Transactional(readOnly = true)
     public List<LedgerEntryResponse> getAllLedgerEntriesForAuditorOrAdmin() {
         return ledgerEntryRepository.findAllByOrderByCreatedAtDesc()
@@ -307,45 +423,85 @@ public class TransactionService {
                 .toList();
     }
 
-    private void validateTransactionReadAccess(Transaction tx) {
-        if (securityContextHelper.isAdmin() || securityContextHelper.isAuditor()) {
-            return;
+    // -------------------------------------------------------------
+    // Idempotency Validation and Persistence Helpers
+    // -------------------------------------------------------------
+
+    private void validateIdempotencyKey(String key) {
+        if (key == null || key.trim().isEmpty()) {
+            throw new MissingIdempotencyKeyException("Missing required 'Idempotency-Key' HTTP header for financial operations");
         }
+        String trimmed = key.trim();
+        if (trimmed.length() < 8 || trimmed.length() > 100) {
+            throw new BusinessRuleViolationException("Idempotency-Key must be between 8 and 100 characters in length");
+        }
+    }
 
-        Long currentUserId = securityContextHelper.getCurrentUserId();
-        boolean isOwner = (tx.getSourceAccount() != null && tx.getSourceAccount().getUser() != null && tx.getSourceAccount().getUser().getId().equals(currentUserId))
-                || (tx.getDestinationAccount() != null && tx.getDestinationAccount().getUser() != null && tx.getDestinationAccount().getUser().getId().equals(currentUserId));
+    private Optional<TransactionResponse> checkExistingIdempotency(String idempotencyKey, String requestHash) {
+        Optional<IdempotencyKey> existingOpt = idempotencyKeyRepository.findByIdempotencyKey(idempotencyKey);
+        if (existingOpt.isPresent()) {
+            IdempotencyKey existing = existingOpt.get();
+            if (!existing.getRequestHash().equals(requestHash)) {
+                log.warn("Idempotency key conflict: Key '{}' reused with mismatched request payload", idempotencyKey);
+                throw new IdempotencyConflictException(
+                        "Idempotency key '" + idempotencyKey + "' has already been used with a different request payload.");
+            }
+            log.info("Idempotent replay detected for key: {}. Returning original cached result.", idempotencyKey);
+            try {
+                TransactionResponse cached = objectMapper.readValue(existing.getResponseBody(), TransactionResponse.class);
+                return Optional.of(cached);
+            } catch (JsonProcessingException e) {
+                log.error("Failed to deserialize cached idempotency response for key: {}", idempotencyKey, e);
+                throw new IllegalStateException("Corrupted cached idempotency payload", e);
+            }
+        }
+        return Optional.empty();
+    }
 
-        if (!isOwner) {
-            throw new AccessDeniedException("Access denied: You do not have permission to view transaction " + tx.getReference());
+    private void recordIdempotency(String idempotencyKey, String requestHash, String endpoint, TransactionResponse response) {
+        try {
+            String json = objectMapper.writeValueAsString(response);
+            Instant expiresAt = Instant.now().plus(Duration.ofDays(7));
+            IdempotencyKey keyEntity = new IdempotencyKey(
+                    idempotencyKey,
+                    requestHash,
+                    endpoint,
+                    "POST",
+                    201,
+                    json,
+                    expiresAt
+            );
+            idempotencyKeyRepository.save(keyEntity);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize idempotency response payload", e);
+        }
+    }
+
+    // -------------------------------------------------------------
+    // Internal Helper Methods
+    // -------------------------------------------------------------
+
+    private void validatePositiveAmount(BigDecimal amount) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessRuleViolationException("Transaction amount must be strictly greater than zero");
         }
     }
 
     private void validateAccountIsActive(Account account) {
         if (account.getStatus() != AccountStatus.ACTIVE) {
-            throw new BusinessRuleViolationException("Account " + account.getAccountNumber() + " is " + account.getStatus() + " and cannot execute transactions");
-        }
-    }
-
-    private void validatePositiveAmount(BigDecimal amount) {
-        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new BusinessRuleViolationException("Transaction amount must be strictly positive and greater than zero");
-        }
-        if (amount.compareTo(new BigDecimal("0.01")) < 0) {
-            throw new BusinessRuleViolationException("Transaction amount must be at least 0.01");
+            throw new BusinessRuleViolationException("Account " + account.getAccountNumber() + " is " + account.getStatus() + " and cannot transact");
         }
     }
 
     private User getCurrentAuthenticatedUser() {
-        Long userId = securityContextHelper.getCurrentUserId();
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found: " + userId));
+        String username = securityContextHelper.getCurrentUsername();
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("Authenticated user not found: " + username));
     }
 
     private String generateTransactionReference(String prefix) {
         SecureRandom random = new SecureRandom();
-        long timestamp = Instant.now().toEpochMilli();
-        int randomPart = 1000 + random.nextInt(9000);
-        return "TXN-" + prefix + "-" + timestamp + "-" + randomPart;
+        long randomPart = Math.abs(random.nextLong()) % 1_000_000_000L;
+        return String.format("%s-%d-%09d", prefix, Instant.now().toEpochMilli(), randomPart);
     }
 }
