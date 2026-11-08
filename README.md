@@ -102,11 +102,11 @@ PORT=8080
 ```
 
 ### 5.2 Running Backend Tests
-Execute the automated test suite (60 tests, 100% passing):
+Execute the automated test suite (75 tests, 100% passing):
 ```bash
 ./mvnw clean test
 ```
-*(On Windows: `.\mvnw.cmd clean test`)*
+*(On Windows: `.\mvn.cmd test` or `.\mvn.ps1 test`)*
 
 ### 5.3 Building & Running Backend
 ```bash
@@ -117,6 +117,7 @@ Execute the automated test suite (60 tests, 100% passing):
 java -jar target/ledgerline-backend-1.0.0-SNAPSHOT.jar
 ```
 Backend will start at `http://localhost:8080`.
+*(On Windows, you can also run `.\start-backend.bat`)*
 
 ### 5.4 Building & Running Frontend
 ```bash
@@ -126,6 +127,24 @@ npm run build
 npm run dev
 ```
 Frontend will be available at `http://localhost:5173`.
+*(On Windows, you can also run `.\start-frontend.bat`)*
+
+### 5.5 One-Command Docker Setup
+To run the full stack (PostgreSQL + Spring Boot Backend) in Docker:
+```bash
+docker compose up --build
+```
+
+### 5.6 Cloud Deployment Guide (Vercel & Render)
+1. **Frontend (Vercel / Netlify):**
+   - Connect repository `https://github.com/Praneethbandi05/Ledger_Line`.
+   - Root Directory: `frontend`
+   - Build Command: `npm run build`
+   - Output Directory: `dist`
+   - SPA route rewrites are pre-configured in `frontend/vercel.json` and `frontend/public/_redirects`.
+2. **Backend (Render / Railway):**
+   - New Web Service connected to repository using the included `Dockerfile`.
+   - Provision free PostgreSQL on Render/Neon/Supabase and supply environment variables `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`.
 
 ---
 
