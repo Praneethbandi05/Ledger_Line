@@ -24,9 +24,9 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
     List<AuditLog> findByResourceIdOrderByCreatedAtDesc(String resourceId);
 
     @Query("SELECT a FROM AuditLog a WHERE " +
-           "(:actor IS NULL OR LOWER(a.actorUsername) = LOWER(:actor)) AND " +
-           "(:action IS NULL OR UPPER(a.action) = UPPER(:action)) AND " +
-           "(:resourceId IS NULL OR a.resourceId = :resourceId) " +
+           "(cast(:actor as string) IS NULL OR LOWER(a.actorUsername) = LOWER(cast(:actor as string))) AND " +
+           "(cast(:action as string) IS NULL OR UPPER(a.action) = UPPER(cast(:action as string))) AND " +
+           "(cast(:resourceId as string) IS NULL OR a.resourceId = cast(:resourceId as string)) " +
            "ORDER BY a.createdAt DESC")
     Page<AuditLog> findWithFilters(
             @Param("actor") String actor,

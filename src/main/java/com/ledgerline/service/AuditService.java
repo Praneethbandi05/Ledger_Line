@@ -79,9 +79,14 @@ public class AuditService {
         String cleanAction = (action != null && !action.isBlank()) ? action.trim() : null;
         String cleanResource = (resourceId != null && !resourceId.isBlank()) ? resourceId.trim() : null;
 
-        Page<AuditLogResponse> page = auditLogRepository
-                .findWithFilters(cleanActor, cleanAction, cleanResource, pageable)
-                .map(AuditLogResponse::new);
+        Page<AuditLog> rawPage;
+        if (cleanActor == null && cleanAction == null && cleanResource == null) {
+            rawPage = auditLogRepository.findAllByOrderByCreatedAtDesc(pageable);
+        } else {
+            rawPage = auditLogRepository.findWithFilters(cleanActor, cleanAction, cleanResource, pageable);
+        }
+
+        Page<AuditLogResponse> page = rawPage.map(AuditLogResponse::new);
 
         return PaginatedResponse.fromPage(page);
     }
