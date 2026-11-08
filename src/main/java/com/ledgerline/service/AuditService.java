@@ -1,11 +1,14 @@
 package com.ledgerline.service;
 
 import com.ledgerline.dto.audit.AuditLogResponse;
+import com.ledgerline.dto.common.PaginatedResponse;
 import com.ledgerline.entity.AuditLog;
 import com.ledgerline.repository.AuditLogRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,6 +69,21 @@ public class AuditService {
                 .stream()
                 .map(AuditLogResponse::new)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public PaginatedResponse<AuditLogResponse> getLogsPaginatedWithFilters(
+            String actor, String action, String resourceId, Pageable pageable) {
+
+        String cleanActor = (actor != null && !actor.isBlank()) ? actor.trim() : null;
+        String cleanAction = (action != null && !action.isBlank()) ? action.trim() : null;
+        String cleanResource = (resourceId != null && !resourceId.isBlank()) ? resourceId.trim() : null;
+
+        Page<AuditLogResponse> page = auditLogRepository
+                .findWithFilters(cleanActor, cleanAction, cleanResource, pageable)
+                .map(AuditLogResponse::new);
+
+        return PaginatedResponse.fromPage(page);
     }
 
     @Transactional(readOnly = true)

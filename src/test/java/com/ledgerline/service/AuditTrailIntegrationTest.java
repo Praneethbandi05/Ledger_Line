@@ -5,9 +5,12 @@ import com.ledgerline.dto.account.CreateAccountRequest;
 import com.ledgerline.dto.auth.LoginRequest;
 import com.ledgerline.dto.auth.RegisterRequest;
 import com.ledgerline.dto.transaction.DepositRequest;
+import com.ledgerline.dto.transaction.WithdrawalRequest;
+import com.ledgerline.entity.Account;
 import com.ledgerline.entity.AuditLog;
 import com.ledgerline.entity.User;
 import com.ledgerline.enums.AccountType;
+import com.ledgerline.repository.AccountRepository;
 import com.ledgerline.repository.AuditLogRepository;
 import com.ledgerline.repository.UserRepository;
 import com.ledgerline.security.JwtTokenProvider;
@@ -49,22 +52,28 @@ class AuditTrailIntegrationTest {
     private UserRepository userRepository;
 
     @Autowired
+    private AccountRepository accountRepository;
+
+    @Autowired
     private AuditLogRepository auditLogRepository;
 
     @Autowired
     private JwtTokenProvider jwtTokenProvider;
 
     private String aliceToken;
+    private String bobToken;
     private String adminToken;
     private String auditorToken;
 
     @BeforeEach
     void setUp() {
         User alice = userRepository.findByUsername("alice").orElseThrow();
+        User bob = userRepository.findByUsername("bob").orElseThrow();
         User admin = userRepository.findByUsername("admin").orElseThrow();
         User auditor = userRepository.findByUsername("auditor").orElseThrow();
 
         aliceToken = jwtTokenProvider.generateTokenFromUser(alice);
+        bobToken = jwtTokenProvider.generateTokenFromUser(bob);
         adminToken = jwtTokenProvider.generateTokenFromUser(admin);
         auditorToken = jwtTokenProvider.generateTokenFromUser(auditor);
     }
@@ -168,5 +177,125 @@ class AuditTrailIntegrationTest {
         assertThatThrownBy(() -> auditLogRepository.deleteAll())
                 .isInstanceOf(UnsupportedOperationException.class)
                 .hasMessageContaining("strictly append-only");
+    }
+
+    @Test
+    @DisplayName("Audit Trail - Failed withdrawal records audit log with REJECTED status")
+    void shouldRecordAuditLogOnFailedWithdrawalDueToInsufficientFunds() throws Exception {
+        WithdrawalRequest request = new WithdrawalRequest("ACC-ALICE-01", new BigDecimal("9999999.00"), "Excessive withdrawal");
+
+        mockMvc.perform(post("/api/v1/transactions/withdraw")
+                        .header("Authorization", "Bearer " + aliceToken)
+                        .header("Idempotency-Key", "WDL-FAIL-" + UUID.randomUUID())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isUnprocessableEntity());
+
+        List<AuditLog> logs = auditLogRepository.findByActionOrderByCreatedAtDesc("WITHDRAWAL_FAILED");
+        assertThat(logs).isNotEmpty();
+
+        AuditLog latest = logs.get(0);
+        assertThat(latest.getActorUsername()).isEqualTo("alice");
+        assertThat(latest.getAction()).isEqualTo("WITHDRAWAL_FAILED");
+        assertThat(latest.getResult()).isEqualTo("REJECTED");
+        assertThat(latest.getResourceId()).isEqualTo("ACC-ALICE-01");
+        assertThat(latest.getDetails()).contains("Insufficient funds");
+    }
+
+    @Test
+    @DisplayName("Audit Trail - Auditor can query audit logs with pagination and filters")
+    void shouldSupportPaginationAndFilteringOnAuditLogs() throws Exception {
+        // Query paginated
+        mockMvc.perform(get("/api/v1/audit/logs")
+                        .param("page", "0")
+                        .param("size", "5")
+                        .header("Authorization", "Bearer " + auditorToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.pageNumber").value(0))
+                .andExpect(jsonPath("$.data.pageSize").value(5))
+                .andExpect(jsonPath("$.data.content").isArray())
+                .andExpect(jsonPath("$.data.totalElements", greaterThanOrEqualTo(1)));
+
+        // Query with actor filter and pagination
+        mockMvc.perform(get("/api/v1/audit/logs")
+                        .param("actor", "alice")
+                        .param("page", "0")
+                        .param("size", "10")
+                        .header("Authorization", "Bearer " + auditorToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.content").isArray());
+    }
+
+    @Test
+    @DisplayName("Audit Trail / Statements - Customer can view own account statement with totals")
+    void shouldReturnAccountStatementForAuthorizedCustomer() throws Exception {
+        Account aliceAccount = accountRepository.findByAccountNumber("ACC-ALICE-01").orElseThrow();
+
+        mockMvc.perform(get("/api/v1/transactions/statement/" + aliceAccount.getId())
+                        .header("Authorization", "Bearer " + aliceToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accountNumber").value("ACC-ALICE-01"))
+                .andExpect(jsonPath("$.data.currency").value("USD"))
+                .andExpect(jsonPath("$.data.totalDebits").exists())
+                .andExpect(jsonPath("$.data.totalCredits").exists())
+                .andExpect(jsonPath("$.data.transactions").isArray());
+    }
+
+    @Test
+    @DisplayName("Audit Trail / Statements - IDOR protection: Customer cannot view another customer statement (403 Forbidden)")
+    void shouldPreventCustomerFromViewingAnotherCustomerStatement() throws Exception {
+        Account aliceAccount = accountRepository.findByAccountNumber("ACC-ALICE-01").orElseThrow();
+
+        mockMvc.perform(get("/api/v1/transactions/statement/" + aliceAccount.getId())
+                        .header("Authorization", "Bearer " + bobToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Audit Trail / Statements - Auditor can view any customer statement (200 OK)")
+    void shouldAllowAuditorToViewAnyAccountStatement() throws Exception {
+        Account aliceAccount = accountRepository.findByAccountNumber("ACC-ALICE-01").orElseThrow();
+
+        mockMvc.perform(get("/api/v1/transactions/statement/" + aliceAccount.getId())
+                        .header("Authorization", "Bearer " + auditorToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accountNumber").value("ACC-ALICE-01"));
+    }
+
+    @Test
+    @DisplayName("Audit Trail / Statements - Ledger statement API access control")
+    void shouldAllowAuditorToViewLedgerEntriesAndPreventCustomer() throws Exception {
+        // Auditor has access
+        mockMvc.perform(get("/api/v1/transactions/ledger")
+                        .header("Authorization", "Bearer " + auditorToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray());
+
+        // Customer forbidden
+        mockMvc.perform(get("/api/v1/transactions/ledger")
+                        .header("Authorization", "Bearer " + aliceToken))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("Audit Trail - Immutability and Security: Audit logs never contain sensitive credentials")
+    void shouldNeverContainSensitiveCredentialsInAuditLogs() {
+        List<AuditLog> allLogs = auditLogRepository.findAll();
+        assertThat(allLogs).isNotEmpty();
+
+        for (AuditLog logEntry : allLogs) {
+            String details = logEntry.getDetails();
+            if (details != null) {
+                assertThat(details).doesNotContain("Customer@123")
+                        .doesNotContain("WrongPassword")
+                        .doesNotContain("Bearer ")
+                        .doesNotContain("secret");
+            }
+        }
     }
 }

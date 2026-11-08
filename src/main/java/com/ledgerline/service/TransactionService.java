@@ -2,6 +2,7 @@ package com.ledgerline.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.ledgerline.dto.transaction.AccountStatementResponse;
 import com.ledgerline.dto.transaction.DepositRequest;
 import com.ledgerline.dto.transaction.LedgerEntryResponse;
 import com.ledgerline.dto.transaction.TransactionResponse;
@@ -13,6 +14,7 @@ import com.ledgerline.entity.LedgerEntry;
 import com.ledgerline.entity.Transaction;
 import com.ledgerline.entity.User;
 import com.ledgerline.enums.AccountStatus;
+import com.ledgerline.enums.EntryType;
 import com.ledgerline.enums.TransactionStatus;
 import com.ledgerline.enums.TransactionType;
 import com.ledgerline.exception.BusinessRuleViolationException;
@@ -222,7 +224,16 @@ public class TransactionService {
         Transaction savedTx = transactionRepository.save(transaction);
 
         // Book balanced entries through the ledger engine (enforces balance >= amount)
-        List<LedgerEntry> entries = ledgerEngine.bookWithdrawal(savedTx, customerAccount, withdrawalClearing);
+        List<LedgerEntry> entries;
+        try {
+            entries = ledgerEngine.bookWithdrawal(savedTx, customerAccount, withdrawalClearing);
+        } catch (BusinessRuleViolationException e) {
+            auditService.recordSecurityEvent(currentUser.getUsername(), currentUser.getRole().name(), "WITHDRAWAL_FAILED",
+                    "ACCOUNT", customerAccount.getAccountNumber(), "REJECTED",
+                    String.format("Withdrawal of $%s rejected: %s", amount, e.getMessage()));
+            throw e;
+        }
+
         for (LedgerEntry entry : entries) {
             savedTx.addLedgerEntry(entry);
         }
@@ -325,7 +336,16 @@ public class TransactionService {
         Transaction savedTx = transactionRepository.save(transaction);
 
         // Book balanced entries through the ledger engine (enforces source balance >= amount)
-        List<LedgerEntry> entries = ledgerEngine.bookTransfer(savedTx, sourceAccount, destinationAccount);
+        List<LedgerEntry> entries;
+        try {
+            entries = ledgerEngine.bookTransfer(savedTx, sourceAccount, destinationAccount);
+        } catch (BusinessRuleViolationException e) {
+            auditService.recordSecurityEvent(currentUser.getUsername(), currentUser.getRole().name(), "TRANSFER_FAILED",
+                    "ACCOUNT", sourceAccount.getAccountNumber(), "REJECTED",
+                    String.format("Transfer of $%s rejected: %s", amount, e.getMessage()));
+            throw e;
+        }
+
         for (LedgerEntry entry : entries) {
             savedTx.addLedgerEntry(entry);
         }
@@ -376,6 +396,44 @@ public class TransactionService {
 
         List<Transaction> transactions = transactionRepository.findByAccountIdOrderByCreatedAtDesc(accountId);
         return transactions.stream().map(TransactionResponse::new).toList();
+    }
+
+    /**
+     * Retrieves an official account statement including totals and transactions.
+     */
+    @Transactional(readOnly = true)
+    public AccountStatementResponse getAccountStatement(Long accountId) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new ResourceNotFoundException("Account not found with ID: " + accountId));
+
+        accountOwnershipValidator.validateAccountReadAccess(account);
+
+        List<Transaction> transactions = transactionRepository.findByAccountIdOrderByCreatedAtDesc(accountId);
+        List<TransactionResponse> txResponses = transactions.stream()
+                .map(TransactionResponse::new)
+                .toList();
+
+        List<LedgerEntry> entries = ledgerEntryRepository.findByAccountIdOrderByCreatedAtDesc(accountId);
+        BigDecimal totalDebits = entries.stream()
+                .filter(e -> e.getEntryType() == EntryType.DEBIT)
+                .map(LedgerEntry::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalCredits = entries.stream()
+                .filter(e -> e.getEntryType() == EntryType.CREDIT)
+                .map(LedgerEntry::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        return new AccountStatementResponse(
+                account.getAccountNumber(),
+                account.getAccountType().name(),
+                account.getCurrency(),
+                account.getBalance(),
+                totalDebits,
+                totalCredits,
+                transactions.size(),
+                txResponses
+        );
     }
 
     /**

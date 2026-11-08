@@ -1,6 +1,7 @@
 package com.ledgerline.controller;
 
 import com.ledgerline.dto.ApiResponse;
+import com.ledgerline.dto.transaction.AccountStatementResponse;
 import com.ledgerline.dto.transaction.DepositRequest;
 import com.ledgerline.dto.transaction.LedgerEntryResponse;
 import com.ledgerline.dto.transaction.TransactionResponse;
@@ -88,6 +89,13 @@ public class TransactionController {
     public ResponseEntity<ApiResponse<List<TransactionResponse>>> getAccountTransactions(@PathVariable Long accountId) {
         List<TransactionResponse> transactions = transactionService.getAccountTransactions(accountId);
         return ResponseEntity.ok(ApiResponse.success("Account transactions retrieved", transactions));
+    }
+
+    @GetMapping("/statement/{accountId}")
+    @PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN', 'AUDITOR')")
+    public ResponseEntity<ApiResponse<AccountStatementResponse>> getAccountStatement(@PathVariable Long accountId) {
+        AccountStatementResponse statement = transactionService.getAccountStatement(accountId);
+        return ResponseEntity.ok(ApiResponse.success("Account statement generated successfully", statement));
     }
 
     @GetMapping("/{reference}")

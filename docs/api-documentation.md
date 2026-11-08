@@ -325,33 +325,95 @@ All financial endpoints require:
 
 ---
 
-### 5.2 Account Transaction Statement
+### 5.2 Account Transaction History
 - **Endpoint:** `GET /api/v1/transactions/account/{accountId}`
 - **Access:** `CUSTOMER` (owner), `ADMIN`, `AUDITOR`
-- **Description:** Returns complete transaction history and ledger breakdown for the specified account.
+- **Description:** Returns the chronological transaction list for the specified account. Enforces IDOR access controls.
 
 ---
 
-### 5.3 Global Transaction Overview
+### 5.3 Official Account Statement
+- **Endpoint:** `GET /api/v1/transactions/statement/{accountId}`
+- **Access:** `CUSTOMER` (owner), `ADMIN`, `AUDITOR`
+- **Description:** Returns an official financial statement for the account, computing total debits, total credits, net balance, transaction count, and itemized transaction records.
+- **Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Account statement generated successfully",
+  "data": {
+    "accountNumber": "ACC-ALICE-01",
+    "accountType": "SAVINGS",
+    "currency": "USD",
+    "currentBalance": 1075.00,
+    "totalDebits": 0.00,
+    "totalCredits": 75.00,
+    "transactionCount": 1,
+    "transactions": [ ... ]
+  }
+}
+```
+
+---
+
+### 5.4 Global Transaction Overview
 - **Endpoint:** `GET /api/v1/transactions/all`
 - **Access:** `ADMIN`, `AUDITOR`
 - **Description:** Comprehensive ledger overview across all platform accounts.
 
 ---
 
-### 5.4 Double-Entry Ledger Journal
-- **Endpoint:** `GET /api/v1/transactions/ledger-entries`
+### 5.5 Double-Entry Ledger Journal Statement
+- **Endpoint:** `GET /api/v1/transactions/ledger`
 - **Access:** `AUDITOR`, `ADMIN`
-- **Description:** Returns raw double-entry debit and credit records for mathematical balance proof inspection ($\sum Debits \equiv \sum Credits$).
+- **Description:** Returns complete double-entry debit and credit records across all accounts with mathematical balance proof ($\sum Debits \equiv \sum Credits$). Customer access is rejected with HTTP 403 Forbidden.
 
 ---
 
 ## 6. Audit Trail Endpoints (`/api/v1/audit`)
 
-### 6.1 Query Audit Logs
+### 6.1 Query Audit Logs (With Pagination and Multi-Attribute Filtering)
 - **Endpoint:** `GET /api/v1/audit/logs`
 - **Access:** `AUDITOR`, `ADMIN`
-- **Description:** Returns append-only immutable audit trail records with actor, action, timestamp, IP, User-Agent, and event metadata.
+- **Query Parameters:**
+  - `actor` (optional): Filter logs by initiating username (e.g. `alice`).
+  - `action` (optional): Filter by event action (e.g. `DEPOSIT`, `WITHDRAWAL`, `LOGIN_FAILED`, `WITHDRAWAL_FAILED`).
+  - `resourceId` (optional): Filter by target resource reference (e.g. `ACC-ALICE-01`).
+  - `page` (optional): Zero-based page index (e.g. `0`). When specified, returns a paginated metadata response.
+  - `size` (optional, default `20`, max `100`): Number of records per page.
+- **Description:** Returns append-only immutable audit trail records. Customers receive HTTP 403 Forbidden. Deletion or updates to records are strictly prohibited at both the application and database level.
+- **Response (Paginated 200 OK):**
+```json
+{
+  "success": true,
+  "message": "Audit trail logs retrieved (paginated)",
+  "data": {
+    "content": [
+      {
+        "id": 142,
+        "actorUsername": "alice",
+        "actorRole": "CUSTOMER",
+        "action": "WITHDRAWAL_FAILED",
+        "resourceType": "ACCOUNT",
+        "resourceId": "ACC-ALICE-01",
+        "result": "REJECTED",
+        "ipAddress": "127.0.0.1",
+        "userAgent": "PostmanRuntime/7.39.0",
+        "details": "Withdrawal of $999999.00 rejected: Insufficient funds in account ACC-ALICE-01",
+        "createdAt": "2026-11-08T10:17:28.420Z"
+      }
+    ],
+    "pageNumber": 0,
+    "pageSize": 20,
+    "totalElements": 48,
+    "totalPages": 3,
+    "isFirst": true,
+    "isLast": false,
+    "hasNext": true,
+    "hasPrevious": false
+  }
+}
+```
 
 ---
 

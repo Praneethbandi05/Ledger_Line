@@ -317,3 +317,49 @@ Repository: `D:\Final Project\LegderLine`
   - Full automated test suite execution: **All 68 tests passing (0 failures, 0 errors, 0 skipped)** across 10 test suites.
   - Packaged executable JAR `ledgerline-backend-1.0.0-SNAPSHOT.jar` updated.
   - Synchronized documentation in `README.md`, `THREATS.md`, and `PROMPTS.md`.
+
+
+---
+
+## Log Entry 10: Phase 6 – Audit Logging, Transaction Statements, and Security Hardening
+
+- **Date:** 2026-11-08
+- **Git Commit:** Pending next commit
+- **User Prompt / Objective:**
+  > Implement Phase 6: Audit Logging and Transaction Statements. Create an append-only audit logging system. Record: Authenticated user, User role, Action performed, Timestamp, Account reference, Transaction reference, Operation result, Relevant request metadata. Requirements: 1. Every important financial operation must generate an audit record. 2. Record failed and rejected financial attempts where appropriate. 3. Prevent customers from changing audit records. 4. Prevent customers from deleting audit records. 5. Auditors must have read-only access. 6. Administrators must not have unrestricted historical record editing capabilities. 7. Never log passwords, JWTs or sensitive credentials. Create: Audit log API, Transaction statement API, Account transaction history API, Ledger statement API. Implement pagination and filtering. Write automated tests for: Audit record creation, Audit record immutability, Unauthorised audit access, Auditor read-only access, Transaction traceability. Use database-level restrictions where practical. Update THREATS.md with actual audit security controls and corresponding tests.
+
+- **Implementation & Engineering Architecture:**
+  - **Append-Only Immutable Audit Trail Engine:**
+    - `audit_logs` entity annotated with Hibernate `@org.hibernate.annotations.Immutable` and `updatable = false` on every column.
+    - `AuditLogRepository` strictly overrides `delete()`, `deleteById()`, `deleteAll()`, and `deleteAll(Iterable)` to throw `UnsupportedOperationException("Audit trail records are strictly append-only and cannot be deleted or modified")`.
+    - Dedicated `recordSecurityEvent(...)` method running under `Propagation.REQUIRES_NEW` ensuring that rejected or failed attempts (`WITHDRAWAL_FAILED`, `TRANSFER_FAILED`, `LOGIN_FAILED`, `UNAUTHORIZED_ACCESS`) commit independently even when outer transactional boundaries roll back.
+  - **Transaction Statement & Ledger Statement APIs:**
+    - `GET /api/v1/transactions/statement/{accountId}`: Official account statement calculating total debits, total credits, net balance, transaction count, and itemized transaction list, protected by `AccountOwnershipValidator` (IDOR defense).
+    - `GET /api/v1/transactions/account/{accountId}`: Transaction history for specific account with customer ownership validation.
+    - `GET /api/v1/transactions/ledger`: Complete double-entry ledger journal statement restricted to `AUDITOR` and `ADMIN` (customers receive HTTP 403 Forbidden).
+    - `GET /api/v1/audit/logs`: Filtered & paginated audit log queries supporting query parameters `actor`, `action`, `resourceId`, `page`, and `size`. Returns `PaginatedResponse` DTO with total elements, total pages, and navigation flags.
+  - **Credential Sanitization & Security Protection:**
+    - Ensured passwords, JWT tokens, and authorization headers are strictly excluded from audit event details and metadata.
+    - Added RFC-7519 compliant `jti` (JWT ID via `UUID.randomUUID()`) to `JwtTokenProvider` to guarantee token uniqueness and eliminate test token hash collisions post-logout.
+
+- **Automated Verification Test Suite:**
+  - Enhanced `AuditTrailIntegrationTest` to 13 comprehensive tests covering:
+    1. `shouldRecordAuditLogOnSuccessfulLogin`: Verifies audit entry with `LOGIN_SUCCESS`, `SUCCESS`, and user metadata.
+    2. `shouldRecordAuditLogOnFailedLogin`: Verifies failed authentication records `LOGIN_FAILED`, `FAILURE` without leaking password.
+    3. `shouldRecordAuditLogOnDeposit`: Verifies deposit creates `DEPOSIT` record with account reference and sanitized amount.
+    4. `shouldRecordAuditLogOnFailedWithdrawalDueToInsufficientFunds`: Verifies rejected withdrawal records `WITHDRAWAL_FAILED` with `REJECTED` status.
+    5. `shouldAllowAuditorToViewAuditLogs`: Confirms auditor role has read access (200 OK).
+    6. `shouldPreventCustomerFromViewingAuditLogs`: Confirms customer receives 403 Forbidden on audit trail API.
+    7. `shouldSupportPaginationAndFilteringOnAuditLogs`: Tests `?page=0&size=5` and `?actor=alice` query parameters on `/api/v1/audit/logs`.
+    8. `shouldReturnAccountStatementForAuthorizedCustomer`: Confirms statement endpoint returns account balance, debits, credits, and transaction list.
+    9. `shouldPreventCustomerFromViewingAnotherCustomerStatement`: Verifies IDOR protection (Bob attempting to fetch Alice's statement receives 403 Forbidden).
+    10. `shouldAllowAuditorToViewAnyAccountStatement`: Confirms auditor can inspect customer statements for regulatory compliance.
+    11. `shouldAllowAuditorToViewLedgerEntriesAndPreventCustomer`: Confirms auditor can access `/api/v1/transactions/ledger` while customer receives 403.
+    12. `shouldNeverContainSensitiveCredentialsInAuditLogs`: Scans all audit records to assert 0 plaintext passwords or Bearer tokens.
+    13. `shouldEnforceAuditTrailImmutability`: Confirms deleting audit logs throws `UnsupportedOperationException`.
+
+- **Verification Results:**
+  - Full automated test suite execution: **All 75 tests passing (0 failures, 0 errors, 0 skipped)** across all 10 test suites.
+  - Executable backend JAR built: `ledgerline-backend-1.0.0-SNAPSHOT.jar`.
+  - Frontend production build: Vite build passed with exit code 0 (`dist/`).
+  - Documentation updated: `docs/api-documentation.md`, `THREATS.md` (THREAT-17, 18, 19), `README.md`, and `PROMPTS.md`.

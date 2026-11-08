@@ -6,7 +6,7 @@
 [![Flyway](https://img.shields.io/badge/Flyway-10.x-red.svg)](https://flywaydb.org/)
 [![React](https://img.shields.io/badge/React-18-cyan.svg)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-5-purple.svg)](https://vitejs.dev/)
-[![Tests Passing](https://img.shields.io/badge/Tests-68%2F68%20Passing-success.svg)](#automated-testing-suite)
+[![Tests Passing](https://img.shields.io/badge/Tests-75%2F75%20Passing-success.svg)](#automated-testing-suite)
 
 **LEDGERLINE** is an institutional-grade financial transaction management application engineered for the **Snovasys 2026 Fresher Hiring Assessment**. It guarantees **absolute double-entry balance integrity**, **PostgreSQL-backed idempotency**, **deadlock-free deterministic concurrency**, **append-only audit immutability**, and **multi-layered IDOR defense**.
 
@@ -131,7 +131,7 @@ Frontend will be available at `http://localhost:5173`.
 
 ## 6. Automated Testing Suite
 
-The backend contains **68 comprehensive automated tests** across 10 test suites:
+The backend contains **75 comprehensive automated tests** across 10 test suites:
 
 | Test Suite | Tests | Verification Area |
 | :--- | :---: | :--- |
@@ -142,10 +142,10 @@ The backend contains **68 comprehensive automated tests** across 10 test suites:
 | `FinancialOperationsIntegrationTest` | 8 | Deposits, withdrawals, transfers, account creation, clearing account integration. |
 | `IdempotencyIntegrationTest` | 6 | Replay of identical requests without duplicate execution, 409 Conflict on payload tampering, mandatory header enforcement. |
 | `ConcurrencyStressIntegrationTest` | 5 | **Multithreaded stress testing**: 10 simultaneous threads preventing overdraft; 2 simultaneous withdrawals exact race; 20 simultaneous cross-transfers with 0 deadlocks; 10 concurrent deposits with no lost updates; 10 identical simultaneous requests. |
-| `AuditTrailIntegrationTest` | 6 | Append-only audit record creation, event metadata extraction (IP/User-Agent), Hibernate `@Immutable` enforcement. |
+| `AuditTrailIntegrationTest` | 13 | Append-only audit record creation, event metadata extraction (IP/User-Agent), Hibernate `@Immutable` enforcement, failed transaction auditing (`WITHDRAWAL_FAILED`), auditor-only access, paginated/filtered audit queries, account statements with debit/credit totals, statement IDOR defense, and credential sanitization. |
 | `HealthControllerIntegrationTest` | 5 | Live PostgreSQL connection health check, latency probes, metadata inspection. |
 | `DatabaseHealthServiceTest` | 10 | Direct JDBC health probes, latency thresholds, and failure simulation. |
-| **Total** | **68** | **0 Failures, 0 Errors, 0 Skipped** |
+| **Total** | **75** | **0 Failures, 0 Errors, 0 Skipped** |
 
 ---
 
@@ -156,7 +156,7 @@ Detailed architecture specifications, database schemas, threat models, and API c
 - 🏛️ [**System Architecture & Design**](docs/architecture.md): Deep-dive into clean layered architecture, double-entry ledger engine, pessimistic row locking, and deterministic lock ordering.
 - 🗄️ [**Database Design & Schema**](docs/database-design.md): Full entity-relationship diagram, table definitions, check constraints, indexes, and Flyway migration versions.
 - 📡 [**REST API Documentation**](docs/api-documentation.md): Comprehensive catalog of all REST endpoints, request/response bodies, status codes, and security rules.
-- 🛡️ [**Threat Model & Security Verification Matrix**](THREATS.md): 15 identified threat categories (IDOR, race conditions, replay attacks, precision exploits) mapped to automated verification tests.
+- 🛡️ [**Threat Model & Security Verification Matrix**](THREATS.md): 19 identified threat categories (IDOR, race conditions, replay attacks, precision exploits, audit tamper resistance, credential sanitization) mapped to automated verification tests.
 - 📜 [**Prompt Engineering & Implementation Log**](PROMPTS.md): Genuine chronological records of all development phases and test execution outputs.
 
 ---
