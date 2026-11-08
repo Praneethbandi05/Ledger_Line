@@ -283,3 +283,37 @@ Repository: `D:\Final Project\LegderLine`
   - Removed `readOnly = true` from `@Transactional` on `AuthService.login(LoginRequest request)`.
   - Re-verified that `recordSecurityEvent()` for failed logins uses `Propagation.REQUIRES_NEW` so failed login audit logs persist independently without affecting outer transactions.
   - Repackaged `ledgerline-backend-1.0.0-SNAPSHOT.jar` and verified `AuthenticationIntegrationTest`.
+
+
+---
+
+## Log Entry 9: Phase 5 – Idempotency Engine & Concurrency Stress Verification
+
+- **Date:** 2026-11-08
+- **Git Commit:** Pending next commit
+- **User Prompt / Objective:**
+  > Implement Phase 5: Idempotency and Concurrency Protection. Idempotency: Require Idempotency-Key header, persist in PostgreSQL, database uniqueness, associate with user/operation, request fingerprint (SHA-256), store transaction result, return original result for identical retries, reject same key with different payload, atomic processing. Concurrency: PostgreSQL row-level locking, Spring Data JPA locking, @Transactional, lock accounts in consistent order, prevent concurrent withdrawals from overspending, avoid lost updates, handle deadlocks safely. Testing: Real concurrent integration tests with separate DB transactions for 2 simultaneous withdrawals, multiple simultaneous transfers, repeated requests with same key, same key with different payload, concurrent deposits, failed transactions & rollback. Update THREATS.md, PROMPTS.md, and README.md.
+
+- **Implementation & Engineering Architecture:**
+  - **Persistent PostgreSQL Idempotency Engine:**
+    - `idempotency_keys` table with unique constraint on `idempotency_key`.
+    - Canonical JSON payload fingerprinting using SHA-256 (`IdempotencyPayloadHasher`).
+    - Exact replay returns cached `TransactionResponse` with matching `reference`, guaranteeing no double-credit or double-debit.
+    - Reusing an existing key with altered payload throws `IdempotencyConflictException` (HTTP 409 Conflict).
+  - **Pessimistic Concurrency & Deterministic Ordering:**
+    - PostgreSQL row-level locking (`SELECT ... FOR UPDATE` via `LockModeType.PESSIMISTIC_WRITE`).
+    - Transfers enforce deterministic lock acquisition ordering: always locks `min(sourceId, destId)` first and `max(sourceId, destId)` second, mathematically eliminating circular-wait deadlocks.
+    - Entities are hydrated for the first time *strictly under the pessimistic lock* by querying primitive `Long` IDs before locking.
+  - **Automated Real Concurrency Integration Tests:**
+    1. `testConcurrentWithdrawalsPreventOverdraft`: 10 simultaneous threads racing against a $500.00 balance; exactly 5 succeed, 5 are rejected with 422, final balance strictly $0.00.
+    2. `testTwoSimultaneousWithdrawalsExactRace`: 2 simultaneous threads each withdrawing $80 against a $100.00 balance; exactly 1 succeeds, 1 rejected, final balance strictly $20.00.
+    3. `testConcurrentCrossTransfersDeadlockFree`: 20 simultaneous cross-transfers (10 Alice->Bob, 10 Bob->Alice); 0 deadlocks, 20/20 succeeded, final balances strictly $1000.00 invariant.
+    4. `testConcurrentDepositsNoLostUpdates`: 10 simultaneous threads each depositing $50 with unique idempotency keys; all 10 succeed with zero lost updates ($1000 -> $1500).
+    5. `testConcurrentIdenticalRequestsExecuteOnce`: 10 simultaneous threads with identical idempotency key; all receive the same transaction reference, balance incremented exactly once ($1000 -> $1150).
+    6. `shouldReplayDepositWithoutDoubleCredit`, `shouldReplayWithdrawalWithoutDoubleDebit`, `shouldReplayTransferWithoutDoubleTransfer`, `shouldRejectKeyReuseWithDifferentPayload` (409 Conflict).
+    7. `shouldRollbackCompletelyOnFailedTransaction`: Verified failed transactions leave 0 ledger entries, 0 transaction records, and unmutated account balances.
+
+- **Verification Results:**
+  - Full automated test suite execution: **All 68 tests passing (0 failures, 0 errors, 0 skipped)** across 10 test suites.
+  - Packaged executable JAR `ledgerline-backend-1.0.0-SNAPSHOT.jar` updated.
+  - Synchronized documentation in `README.md`, `THREATS.md`, and `PROMPTS.md`.

@@ -284,4 +284,108 @@ class ConcurrencyStressIntegrationTest {
         Account finalAlice = accountRepository.findByAccountNumber("ACC-ALICE-01").orElseThrow();
         assertThat(finalAlice.getBalance()).isEqualByComparingTo("1150.00");
     }
+
+    @Test
+    @DisplayName("Concurrency: Two simultaneous withdrawals of $80 against $100 balance - exactly 1 succeeds, 1 rejected")
+    void testTwoSimultaneousWithdrawalsExactRace() throws Exception {
+        Account freshAlice = accountRepository.findByAccountNumber("ACC-ALICE-01").orElseThrow();
+        freshAlice.setBalance(new BigDecimal("100.00"));
+        accountRepository.saveAndFlush(freshAlice);
+
+        int totalThreads = 2;
+        ExecutorService executor = Executors.newFixedThreadPool(totalThreads);
+        CountDownLatch startGate = new CountDownLatch(1);
+        CountDownLatch endGate = new CountDownLatch(totalThreads);
+
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger rejectedCount = new AtomicInteger(0);
+
+        for (int i = 0; i < totalThreads; i++) {
+            executor.submit(() -> {
+                try {
+                    startGate.await();
+                    WithdrawalRequest request = new WithdrawalRequest("ACC-ALICE-01", new BigDecimal("80.00"), "Dual withdrawal race");
+                    MvcResult result = mockMvc.perform(post("/api/v1/transactions/withdraw")
+                                    .header("Authorization", "Bearer " + aliceToken)
+                                    .header("Idempotency-Key", "WDL-DUAL-" + UUID.randomUUID())
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(objectMapper.writeValueAsString(request)))
+                            .andReturn();
+
+                    int status = result.getResponse().getStatus();
+                    if (status == 201) {
+                        successCount.incrementAndGet();
+                    } else if (status == 422) {
+                        rejectedCount.incrementAndGet();
+                    }
+                } catch (Exception ignored) {
+                } finally {
+                    endGate.countDown();
+                }
+            });
+        }
+
+        startGate.countDown();
+        boolean completed = endGate.await(15, TimeUnit.SECONDS);
+        executor.shutdown();
+
+        assertThat(completed).isTrue();
+        assertThat(successCount.get()).isEqualTo(1);
+        assertThat(rejectedCount.get()).isEqualTo(1);
+
+        Account finalAlice = accountRepository.findByAccountNumber("ACC-ALICE-01").orElseThrow();
+        assertThat(finalAlice.getBalance()).isEqualByComparingTo("20.00");
+    }
+
+    @Test
+    @DisplayName("Concurrency: 10 concurrent deposits of $50 each must complete without lost updates ($1000 -> $1500)")
+    void testConcurrentDepositsNoLostUpdates() throws Exception {
+        Account freshAlice = accountRepository.findByAccountNumber("ACC-ALICE-01").orElseThrow();
+        freshAlice.setBalance(new BigDecimal("1000.00"));
+        accountRepository.saveAndFlush(freshAlice);
+
+        int totalThreads = 10;
+        ExecutorService executor = Executors.newFixedThreadPool(totalThreads);
+        CountDownLatch startGate = new CountDownLatch(1);
+        CountDownLatch endGate = new CountDownLatch(totalThreads);
+
+        AtomicInteger successCount = new AtomicInteger(0);
+        AtomicInteger errorCount = new AtomicInteger(0);
+
+        for (int i = 0; i < totalThreads; i++) {
+            executor.submit(() -> {
+                try {
+                    startGate.await();
+                    DepositRequest request = new DepositRequest("ACC-ALICE-01", new BigDecimal("50.00"), "Concurrent deposit");
+                    MvcResult result = mockMvc.perform(post("/api/v1/transactions/deposit")
+                                    .header("Authorization", "Bearer " + aliceToken)
+                                    .header("Idempotency-Key", "DEP-CONC-" + UUID.randomUUID())
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(objectMapper.writeValueAsString(request)))
+                            .andReturn();
+
+                    if (result.getResponse().getStatus() == 201) {
+                        successCount.incrementAndGet();
+                    } else {
+                        errorCount.incrementAndGet();
+                    }
+                } catch (Exception e) {
+                    errorCount.incrementAndGet();
+                } finally {
+                    endGate.countDown();
+                }
+            });
+        }
+
+        startGate.countDown();
+        boolean completed = endGate.await(30, TimeUnit.SECONDS);
+        executor.shutdown();
+
+        assertThat(completed).isTrue();
+        assertThat(errorCount.get()).isEqualTo(0);
+        assertThat(successCount.get()).isEqualTo(10);
+
+        Account finalAlice = accountRepository.findByAccountNumber("ACC-ALICE-01").orElseThrow();
+        assertThat(finalAlice.getBalance()).isEqualByComparingTo("1500.00");
+    }
 }
