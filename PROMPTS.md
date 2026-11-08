@@ -259,3 +259,27 @@ Repository: `D:\Final Project\LegderLine`
 - **Verification Results:**
   - Test suite execution: **All 66 tests passing (0 failures, 0 errors, 0 skipped)** across 10 test suites.
   - Documentation updated: Added Section 3.4 to `docs/architecture.md`, updated `docs/database-design.md`, added `THREAT-16` to `THREATS.md`, and updated `README.md`.
+
+
+---
+
+## Log Entry 8: Production Login Diagnostic – Resolving HTTP 500 on Auditor/Admin Authentication
+
+- **Date:** 2026-11-08
+- **Git Commit:** Pending next commit
+- **User Prompt / Issue:**
+  > User reported HTTP 500 internal server error when clicking "Auditor User" quick-fill and signing in via the React frontend dashboard (`Request failed with status code 500`).
+
+- **Diagnostic Investigation:**
+  - Inspected `AuthService.login(LoginRequest request)`:
+    Method was annotated with `@Transactional(readOnly = true)`.
+  - Inside `login()`, successful authentication executes:
+    `auditService.recordEvent(userDetails.getUsername(), userDetails.getRole().name(), "LOGIN_SUCCESS", ...)`
+  - `AuditService.recordEvent()` invokes `auditLogRepository.save(entry)`, issuing an `INSERT INTO audit_logs` statement.
+  - In PostgreSQL, executing an `INSERT` statement within a JDBC transaction marked `readOnly = true` throws `org.postgresql.util.PSQLException: ERROR: cannot execute INSERT in a read-only transaction`.
+  - Spring Boot surfaced this database exception as an unhandled HTTP 500 Internal Server Error.
+
+- **Technical Correction & Resolution:**
+  - Removed `readOnly = true` from `@Transactional` on `AuthService.login(LoginRequest request)`.
+  - Re-verified that `recordSecurityEvent()` for failed logins uses `Propagation.REQUIRES_NEW` so failed login audit logs persist independently without affecting outer transactions.
+  - Repackaged `ledgerline-backend-1.0.0-SNAPSHOT.jar` and verified `AuthenticationIntegrationTest`.

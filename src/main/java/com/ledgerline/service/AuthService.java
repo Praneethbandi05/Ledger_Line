@@ -113,7 +113,7 @@ public class AuthService {
         return new AuthResponse(token, jwtTokenProvider.getExpirationMs(), profile);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public AuthResponse login(LoginRequest request) {
         try {
             Authentication authentication = authenticationManager.authenticate(
