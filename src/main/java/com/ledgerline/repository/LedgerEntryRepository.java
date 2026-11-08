@@ -19,4 +19,24 @@ public interface LedgerEntryRepository extends JpaRepository<LedgerEntry, Long> 
 
     @Query("SELECT le FROM LedgerEntry le WHERE le.account.user.id = :userId ORDER BY le.createdAt DESC")
     List<LedgerEntry> findByUserIdOrderByCreatedAtDesc(@Param("userId") Long userId);
+
+    @Override
+    default void delete(LedgerEntry entity) {
+        throw new UnsupportedOperationException("Historical ledger records are strictly immutable and cannot be deleted");
+    }
+
+    @Override
+    default void deleteById(Long id) {
+        throw new UnsupportedOperationException("Historical ledger records are strictly immutable and cannot be deleted");
+    }
+
+    @Override
+    default void deleteAll() {
+        throw new UnsupportedOperationException("Historical ledger records are strictly immutable and cannot be deleted");
+    }
+
+    @Override
+    default void deleteAll(Iterable<? extends LedgerEntry> entities) {
+        throw new UnsupportedOperationException("Historical ledger records are strictly immutable and cannot be deleted");
+    }
 }

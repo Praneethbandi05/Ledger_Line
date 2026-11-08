@@ -198,6 +198,12 @@ The balanced double-entry journal records. Every transaction produces $\ge 2$ en
 - `idx_ledger_entries_account` on `ledger_entries(account_id)`
 - `idx_ledger_entries_created` on `ledger_entries(created_at DESC)`
 
+**Immutability Invariants:**
+- Entity marked `@org.hibernate.annotations.Immutable`.
+- All column mappings enforce `updatable = false`.
+- Repository layer overrides `delete()`, `deleteById()`, and `deleteAll()` to reject deletions with `UnsupportedOperationException`.
+- Transactions and ledger records cannot be modified once committed. Partial entries roll back completely via `@Transactional`.
+
 ---
 
 ### 2.5 Table: `idempotency_keys`

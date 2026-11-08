@@ -2,12 +2,14 @@ package com.ledgerline.entity;
 
 import com.ledgerline.enums.EntryType;
 import jakarta.persistence.*;
+import org.hibernate.annotations.Immutable;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 
 @Entity
+@Immutable
 @Table(name = "ledger_entries", indexes = {
     @Index(name = "idx_ledger_entries_transaction", columnList = "transaction_id"),
     @Index(name = "idx_ledger_entries_account", columnList = "account_id"),
@@ -20,27 +22,27 @@ public class LedgerEntry {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "transaction_id", nullable = false)
+    @JoinColumn(name = "transaction_id", nullable = false, updatable = false)
     private Transaction transaction;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "account_id", nullable = false)
+    @JoinColumn(name = "account_id", nullable = false, updatable = false)
     private Account account;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "entry_type", nullable = false, length = 10)
+    @Column(name = "entry_type", nullable = false, length = 10, updatable = false)
     private EntryType entryType;
 
-    @Column(nullable = false, precision = 19, scale = 2)
+    @Column(nullable = false, precision = 19, scale = 2, updatable = false)
     private BigDecimal amount;
 
-    @Column(name = "balance_after", nullable = false, precision = 19, scale = 2)
+    @Column(name = "balance_after", nullable = false, precision = 19, scale = 2, updatable = false)
     private BigDecimal balanceAfter;
 
-    @Column(nullable = false, length = 3)
+    @Column(nullable = false, length = 3, updatable = false)
     private String currency = "USD";
 
-    @Column(length = 255)
+    @Column(length = 255, updatable = false)
     private String description;
 
     @Column(name = "created_at", nullable = false, updatable = false)

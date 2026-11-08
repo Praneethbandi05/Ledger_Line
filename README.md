@@ -6,7 +6,7 @@
 [![Flyway](https://img.shields.io/badge/Flyway-10.x-red.svg)](https://flywaydb.org/)
 [![React](https://img.shields.io/badge/React-18-cyan.svg)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-5-purple.svg)](https://vitejs.dev/)
-[![Tests Passing](https://img.shields.io/badge/Tests-60%2F60%20Passing-success.svg)](#automated-testing-suite)
+[![Tests Passing](https://img.shields.io/badge/Tests-66%2F66%20Passing-success.svg)](#automated-testing-suite)
 
 **LEDGERLINE** is an institutional-grade financial transaction management application engineered for the **Snovasys 2026 Fresher Hiring Assessment**. It guarantees **absolute double-entry balance integrity**, **PostgreSQL-backed idempotency**, **deadlock-free deterministic concurrency**, **append-only audit immutability**, and **multi-layered IDOR defense**.
 
@@ -131,11 +131,12 @@ Frontend will be available at `http://localhost:5173`.
 
 ## 6. Automated Testing Suite
 
-The backend contains **60 comprehensive automated tests** across 8 test suites:
+The backend contains **66 comprehensive automated tests** across 10 test suites:
 
 | Test Suite | Tests | Verification Area |
 | :--- | :---: | :--- |
 | `DoubleEntryLedgerEngineTest` | 8 | Mathematical balance equation ($\sum D \equiv \sum C$), negative amounts, insufficient funds, system clearing validation. |
+| `DoubleEntryLedgerIntegrationTest` | 6 | Double-entry invariants on deposit, withdrawal, transfer; atomicity & complete rollback on failure; immutability of historical ledger records. |
 | `AuthenticationIntegrationTest` | 7 | Registration, BCrypt password hashing, JWT signing/expiry, token blacklist revocation on logout. |
 | `AuthorizationIntegrationTest` | 7 | Multi-role authorization, IDOR defense (Alice accessing Bob), Auditor financial write restriction. |
 | `FinancialOperationsIntegrationTest` | 8 | Deposits, withdrawals, transfers, account creation, clearing account integration. |
@@ -143,7 +144,8 @@ The backend contains **60 comprehensive automated tests** across 8 test suites:
 | `ConcurrencyStressIntegrationTest` | 3 | **Multithreaded stress testing**: 10 simultaneous threads preventing overdraft; 20 simultaneous cross-transfers with 0 deadlocks; 10 identical simultaneous requests. |
 | `AuditTrailIntegrationTest` | 6 | Append-only audit record creation, event metadata extraction (IP/User-Agent), Hibernate `@Immutable` enforcement. |
 | `HealthControllerIntegrationTest` | 5 | Live PostgreSQL connection health check, latency probes, metadata inspection. |
-| **Total** | **60** | **0 Failures, 0 Errors, 0 Skipped** |
+| `DatabaseHealthServiceTest` | 10 | Direct JDBC health probes, latency thresholds, and failure simulation. |
+| **Total** | **66** | **0 Failures, 0 Errors, 0 Skipped** |
 
 ---
 

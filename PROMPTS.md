@@ -226,3 +226,36 @@ Repository: `D:\Final Project\LegderLine`
   - Frontend production build: **Vite build passed with exit code 0** (276 kB bundle, 8 kB CSS).
   - All role dashboards fully functional and connected to live Spring Boot REST endpoints.
   - Documentation suite created: `docs/architecture.md`, `docs/database-design.md`, `docs/api-documentation.md`, updated `README.md`, `THREATS.md`, and `PROMPTS.md`.
+
+
+---
+
+## Log Entry 7: Phase 4 – Double-Entry Accounting Ledger Engine, Invariant Verification & Immutability Hardening
+
+- **Date:** 2026-11-08
+- **Git Commit:** Pending next commit
+- **User Prompt / Objective:**
+  > Implement Phase 4: Double-Entry Accounting Ledger. Requirements: Create ledger accounts, create ledger entries, support debit and credit entries, associate every ledger entry with a transaction, record transaction timestamps, store transaction references, support ledger queries, provide transaction-level ledger statements. For every completed transaction: SUM(DEBIT ENTRIES) = SUM(CREDIT ENTRIES). Correct accounting treatment for deposits, withdrawals, and customer-to-customer transfers with system clearing accounts. Ledger entries must be immutable; no API may update or delete historical entries. Validate balanced entries before finalizing. Store entries and balance updates atomically. Failed transactions roll back completely. Automated tests verifying: Debit equals credit, deposits balanced, withdrawals balanced, transfers balanced, failed transactions do not leave partial entries, historical ledger records cannot be modified. Update database-design.md, architecture.md, and THREATS.md.
+
+- **AI Initial Suggestion & Approach:**
+  - Hardened `LedgerEntry` entity with `@org.hibernate.annotations.Immutable` and `updatable = false` on all columns.
+  - Hardened `LedgerEntryRepository` by overriding all delete methods (`delete()`, `deleteById()`, `deleteAll()`, `deleteAll(Iterable)`) to throw `UnsupportedOperationException("Historical ledger records are strictly immutable and cannot be deleted")`.
+  - Built comprehensive integration test suite `DoubleEntryLedgerIntegrationTest` explicitly validating:
+    1. Invariant: $\sum \text{Debits} \equiv \sum \text{Credits} \equiv \text{Transaction Amount}$ on deposits.
+    2. Invariant: $\sum \text{Debits} \equiv \sum \text{Credits} \equiv \text{Transaction Amount}$ on withdrawals.
+    3. Invariant: $\sum \text{Debits} \equiv \sum \text{Credits} \equiv \text{Transaction Amount}$ on transfers.
+    4. Rollback Atomicity: Failed transactions (e.g. overdrafts) abort cleanly via Spring `@Transactional`, guaranteeing 0 partial ledger entries and unchanged account balances.
+    5. Immutability: Attempted deletion of historical ledger entries throws `UnsupportedOperationException`.
+    6. Auditor Queries: Verified auditor can inspect the complete ledger journal statement.
+
+- **Actual Errors Encountered & Resolution:**
+  - **Transaction Reference vs ID in DTO Response:**
+    In the initial test setup, `DoubleEntryLedgerIntegrationTest` looked for `data.transactionReference` in the JSON response, but the field name in `TransactionResponse` is `data.reference` and `data.id`.
+    *Resolution:* Updated test to read `data.id` and directly query `ledgerEntryRepository.findByTransactionIdOrderByCreatedAtAsc(txId)`, eliminating any query ambiguity.
+  - **Windows Process File Locking During Clean Build:**
+    `mvn clean test` failed with `Failed to delete target\ledgerline-backend-1.0.0-SNAPSHOT.jar` due to a lingering process lock from a previous background probe.
+    *Resolution:* Cleared stale processes using PowerShell `Stop-Process`, cleaned `target/`, and re-executed clean build.
+
+- **Verification Results:**
+  - Test suite execution: **All 66 tests passing (0 failures, 0 errors, 0 skipped)** across 10 test suites.
+  - Documentation updated: Added Section 3.4 to `docs/architecture.md`, updated `docs/database-design.md`, added `THREAT-16` to `THREATS.md`, and updated `README.md`.

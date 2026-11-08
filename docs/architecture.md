@@ -139,6 +139,13 @@ To preserve double-entry integrity for external capital injections and extractio
   1. **Domain Engine Check:** `DoubleEntryLedgerEngine.validateSufficientBalance()`.
   2. **Database Engine Constraint:** PostgreSQL check constraint `chk_account_balance_non_negative (balance >= 0)`.
 
+### 3.4 Ledger Immutability & Rollback Guarantee
+
+- **Entity Immutability:** The `LedgerEntry` entity is annotated with `@org.hibernate.annotations.Immutable` and all column mappings specify `updatable = false`. Hibernate never generates `UPDATE` statements for journal entries.
+- **Repository Deletion Safeguard:** `LedgerEntryRepository` explicitly overrides all delete methods (`delete()`, `deleteById()`, `deleteAll()`, `deleteAll(Iterable)`) to throw `UnsupportedOperationException("Historical ledger records are strictly immutable and cannot be deleted")`.
+- **API Immutability:** No REST endpoints exist (`PUT`, `PATCH`, `DELETE`) for mutating or removing ledger entries; all ledger records are append-only.
+- **Atomicity & Rollback:** All operations occur within Spring `@Transactional` boundaries. If any validation fails (e.g., imbalanced entries, negative amount, insufficient funds), the entire database transaction aborts, leaving zero partial entries and unmutated account balances.
+
 ---
 
 ## 4. Concurrency & Deadlock Prevention Architecture
