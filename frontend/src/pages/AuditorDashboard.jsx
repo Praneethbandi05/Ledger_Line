@@ -38,9 +38,9 @@ export const AuditorDashboard = () => {
         auditService.getAllLogs(),
         transactionService.getAllTransactions(),
       ]);
-      setLedgerEntries(ledgerData);
-      setAuditLogs(logsData);
-      setTransactions(txData);
+      setLedgerEntries(Array.isArray(ledgerData) ? ledgerData : (ledgerData?.content || []));
+      setAuditLogs(Array.isArray(logsData) ? logsData : (logsData?.content || []));
+      setTransactions(Array.isArray(txData) ? txData : (txData?.content || []));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to retrieve compliance records');
     } finally {

@@ -131,7 +131,7 @@ Repository: `D:\Final Project\LegderLine`
 ## Log Entry 4: Phase 4 & Phase 5 – Idempotency Engine, Race-Condition Overdraft Prevention & Deterministic Concurrency
 
 - **Date:** 2026-11-07
-- **Git Commit:** Pending next commit
+- **Git Commit:** [`03d869b`](https://github.com/Praneethbandi05/Ledger_Line/commit/03d869b0faee22dd2f8e13dcf5d1341c59bb7e7b) (`03d869b0faee22dd2f8e13dcf5d1341c59bb7e7b`)
 - **User Prompt / Objective:**
   > Implement Phase 4 & Phase 5: Financial Idempotency and Concurrency Stress Testing. Require an Idempotency-Key header on money movement APIs. Persist keys in PostgreSQL with unique database constraints. Return original result on identical payload and reject key reuse with modified payloads. Guarantee atomic key and ledger processing. Use pessimistic row locking to prevent concurrent withdrawals from overspending. Eliminate circular wait deadlocks on cross-transfers through deterministic lock ordering. Write genuinely multithreaded stress tests.
 
@@ -165,7 +165,7 @@ Repository: `D:\Final Project\LegderLine`
 ## Log Entry 5: Phase 6 – Immutable Append-Only Audit Trail & Authorization Boundary Audit
 
 - **Date:** 2026-11-07
-- **Git Commit:** Pending next commit
+- **Git Commit:** [`03d869b`](https://github.com/Praneethbandi05/Ledger_Line/commit/03d869b0faee22dd2f8e13dcf5d1341c59bb7e7b) (`03d869b0faee22dd2f8e13dcf5d1341c59bb7e7b`)
 - **User Prompt / Objective:**
   > Implement Phase 6: Append-Only Audit Trail. Create append-only audit records recording Actor, Action, Timestamp, relevant account/transaction ID, Result, and request metadata (IP, user agent). Prevent application users from modifying or deleting audit records using database and application restrictions. Provide auditor-only inspection APIs. Write automated tests verifying audit log creation and immutability.
 
@@ -198,7 +198,7 @@ Repository: `D:\Final Project\LegderLine`
 ## Log Entry 6: Phase 7 – React Fintech Frontend Dashboard, Complete End-to-End Routing & Documentation
 
 - **Date:** 2026-11-07
-- **Git Commit:** Pending next commit
+- **Git Commit:** [`36275c3`](https://github.com/Praneethbandi05/Ledger_Line/commit/36275c3f3ea4d7ec63fc532588147d3aa0e46123) (`36275c3f3ea4d7ec63fc532588147d3aa0e46123`)
 - **User Prompt / Objective:**
   > Build a professional fintech dashboard. Customer: Login, Dashboard, Account balance, Deposit, Withdrawal, Transfer, Transaction history, Account statement. Admin: Dashboard, Customer management, Account management, Transaction overview. Auditor: Transaction history, Ledger entries, Audit records, Read-only access. Modern professional fintech design, responsive layout, clear forms, loading states, error messages, transaction confirmation, empty states. No fake financial data. Maintain documentation integrity.
 
@@ -233,7 +233,7 @@ Repository: `D:\Final Project\LegderLine`
 ## Log Entry 7: Phase 4 – Double-Entry Accounting Ledger Engine, Invariant Verification & Immutability Hardening
 
 - **Date:** 2026-11-08
-- **Git Commit:** Pending next commit
+- **Git Commit:** [`e7fad6b`](https://github.com/Praneethbandi05/Ledger_Line/commit/e7fad6bcda0b95eb9372134c0eb3c46e3e568ea4) (`e7fad6bcda0b95eb9372134c0eb3c46e3e568ea4`)
 - **User Prompt / Objective:**
   > Implement Phase 4: Double-Entry Accounting Ledger. Requirements: Create ledger accounts, create ledger entries, support debit and credit entries, associate every ledger entry with a transaction, record transaction timestamps, store transaction references, support ledger queries, provide transaction-level ledger statements. For every completed transaction: SUM(DEBIT ENTRIES) = SUM(CREDIT ENTRIES). Correct accounting treatment for deposits, withdrawals, and customer-to-customer transfers with system clearing accounts. Ledger entries must be immutable; no API may update or delete historical entries. Validate balanced entries before finalizing. Store entries and balance updates atomically. Failed transactions roll back completely. Automated tests verifying: Debit equals credit, deposits balanced, withdrawals balanced, transfers balanced, failed transactions do not leave partial entries, historical ledger records cannot be modified. Update database-design.md, architecture.md, and THREATS.md.
 
@@ -266,7 +266,7 @@ Repository: `D:\Final Project\LegderLine`
 ## Log Entry 8: Production Login Diagnostic – Resolving HTTP 500 on Auditor/Admin Authentication
 
 - **Date:** 2026-11-08
-- **Git Commit:** Pending next commit
+- **Git Commit:** [`a77ccc3`](https://github.com/Praneethbandi05/Ledger_Line/commit/a77ccc3f8e5b4104fb4c09d5718a38c2dc5a0b73) (`a77ccc3f8e5b4104fb4c09d5718a38c2dc5a0b73`)
 - **User Prompt / Issue:**
   > User reported HTTP 500 internal server error when clicking "Auditor User" quick-fill and signing in via the React frontend dashboard (`Request failed with status code 500`).
 
@@ -290,7 +290,7 @@ Repository: `D:\Final Project\LegderLine`
 ## Log Entry 9: Phase 5 – Idempotency Engine & Concurrency Stress Verification
 
 - **Date:** 2026-11-08
-- **Git Commit:** Pending next commit
+- **Git Commit:** [`e916622`](https://github.com/Praneethbandi05/Ledger_Line/commit/e916622ecab76f8ce3248e580467793b59938b8d) (`e916622ecab76f8ce3248e580467793b59938b8d`)
 - **User Prompt / Objective:**
   > Implement Phase 5: Idempotency and Concurrency Protection. Idempotency: Require Idempotency-Key header, persist in PostgreSQL, database uniqueness, associate with user/operation, request fingerprint (SHA-256), store transaction result, return original result for identical retries, reject same key with different payload, atomic processing. Concurrency: PostgreSQL row-level locking, Spring Data JPA locking, @Transactional, lock accounts in consistent order, prevent concurrent withdrawals from overspending, avoid lost updates, handle deadlocks safely. Testing: Real concurrent integration tests with separate DB transactions for 2 simultaneous withdrawals, multiple simultaneous transfers, repeated requests with same key, same key with different payload, concurrent deposits, failed transactions & rollback. Update THREATS.md, PROMPTS.md, and README.md.
 
@@ -324,7 +324,7 @@ Repository: `D:\Final Project\LegderLine`
 ## Log Entry 10: Phase 6 – Audit Logging, Transaction Statements, and Security Hardening
 
 - **Date:** 2026-11-08
-- **Git Commit:** Pending next commit
+- **Git Commit:** [`4a4fe83`](https://github.com/Praneethbandi05/Ledger_Line/commit/4a4fe83a15233ea8a46237887e45e994e6bfd1d3) (`4a4fe83a15233ea8a46237887e45e994e6bfd1d3`)
 - **User Prompt / Objective:**
   > Implement Phase 6: Audit Logging and Transaction Statements. Create an append-only audit logging system. Record: Authenticated user, User role, Action performed, Timestamp, Account reference, Transaction reference, Operation result, Relevant request metadata. Requirements: 1. Every important financial operation must generate an audit record. 2. Record failed and rejected financial attempts where appropriate. 3. Prevent customers from changing audit records. 4. Prevent customers from deleting audit records. 5. Auditors must have read-only access. 6. Administrators must not have unrestricted historical record editing capabilities. 7. Never log passwords, JWTs or sensitive credentials. Create: Audit log API, Transaction statement API, Account transaction history API, Ledger statement API. Implement pagination and filtering. Write automated tests for: Audit record creation, Audit record immutability, Unauthorised audit access, Auditor read-only access, Transaction traceability. Use database-level restrictions where practical. Update THREATS.md with actual audit security controls and corresponding tests.
 
@@ -370,7 +370,7 @@ Repository: `D:\Final Project\LegderLine`
 ## Log Entry 11: Phase 7 – Complete LedgerLine React Frontend Architecture
 
 - **Date:** 2026-11-08
-- **Git Commit:** Pending next commit
+- **Git Commit:** [`36b134d`](https://github.com/Praneethbandi05/Ledger_Line/commit/36b134d8520bf216d251648a1da12d16568bb94c) (`36b134d8520bf216d251648a1da12d16568bb94c`)
 - **User Prompt / Objective:**
   > Implement Phase 7: Complete LedgerLine React Frontend. Use the existing React and Vite project. Build a professional fintech application. Design direction: Modern financial technology dashboard, clean professional interface, consistent spacing and typography, responsive desktop and mobile layouts, accessible forms and buttons, clear success and error notifications. Customer pages: 1. Login, 2. Registration, 3. Customer dashboard, 4. Account details, 5. Deposit, 6. Withdrawal, 7. Transfer, 8. Transaction history, 9. Account statements, 10. Profile. Admin pages: 1. Admin dashboard, 2. User management, 3. Account management, 4. Transaction overview. Auditor pages: 1. Auditor dashboard, 2. Transaction explorer, 3. Ledger explorer, 4. Audit log viewer. Frontend requirements: Integrate all pages with actual backend APIs, central API service, loading states, error handling, user input validation, role-based route protection (not a substitute for backend authorization), no passwords in browser storage, no fake transaction success messages, no hardcoded financial balances, safe handling of expired tokens, idempotency keys for money movement requests. All financial calculations and authorization remain on the backend.
 
@@ -408,3 +408,33 @@ Repository: `D:\Final Project\LegderLine`
   - Frontend production build: **Vite build passed with exit code 0** (1653 modules transformed in 3.40s).
   - Full automated backend test suite: **All 75 tests passing (0 failures, 0 errors, 0 skipped)**.
   - Full synchronization of all customer, admin, and auditor views with live backend REST endpoints.
+
+
+---
+
+## Log Entry 12: Production Audit API & Frontend Resilience – PostgreSQL Query Cast & React Defensive Array Normalization
+
+- **Date:** 2026-11-08
+- **Git Commit:** [`d0fdf00`](https://github.com/Praneethbandi05/Ledger_Line/commit/d0fdf0041ef425c2763ce1a54dcbe83a54b341f5) (`d0fdf0041ef425c2763ce1a54dcbe83a54b341f5`)
+- **User Prompt / Issue:**
+  > Resolve audit logs query error in PostgreSQL and ensure complete frontend stability across all customer, admin, and auditor views during end-to-end evaluation.
+
+- **Diagnostic Investigation:**
+  - When querying `/api/v1/audit/logs` with optional null filter parameters, PostgreSQL 16 threw:
+    `org.postgresql.util.PSQLException: ERROR: function lower(bytea) does not exist at character 255`
+    *Root Cause:* Hibernate passes untyped Java `null` values as bytea to the PostgreSQL JDBC driver when evaluating `LOWER(:actor)` in JPQL, causing PostgreSQL to search for a non-existent `lower(bytea)` function.
+  - In the React frontend, when `auditService.getAllLogs()` or `transactionService.getAllTransactions()` returned paginated DTO objects (`{ content: [...], totalElements: 5 }`), direct calls to `.filter()` or `.reduce()` risked throwing client-side JavaScript errors.
+
+- **Technical Correction & Resolution:**
+  1. Updated `AuditLogRepository.java` to explicitly cast parameters in JPQL:
+     `(cast(:actor as string) is null or lower(a.actorUsername) = lower(cast(:actor as string)))`
+     and optimized `AuditService.getLogsPaginatedWithFilters` to route unfiltered requests directly to `findAllByOrderByCreatedAtDesc(pageable)`.
+  2. Enhanced frontend state setters across `AuditorDashboard.jsx`, `AuditorAuditLogViewer.jsx`, `AuditorLedgerExplorer.jsx`, `AuditorTransactionExplorer.jsx`, `AdminDashboard.jsx`, `AdminUserManagement.jsx`, `AdminAccountManagement.jsx`, and `CustomerDashboard.jsx` using defensive array guards:
+     `Array.isArray(data) ? data : (data?.content || [])`
+  3. Added enhanced error handling in `LoginPage.jsx` distinguishing network disconnects, invalid credentials (401), and internal server errors (500) with actionable user guidance.
+
+- **Verification Results:**
+  - Executed live API probe via REST: `GET /api/v1/audit/logs?page=0&size=5` returned `200 OK` with 5 logs in 14ms.
+  - Rebuilt production JAR and frontend bundle (`vite build` passed in 5.56s).
+  - All 75 automated backend integration tests passing with 0 errors.
+

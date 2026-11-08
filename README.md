@@ -64,8 +64,8 @@ The database is pre-seeded via Flyway migrations (`V2` and `V3`) with test users
 | :--- | :--- | :--- | :--- |
 | `alice` | `Customer@123` | `CUSTOMER` | Regular customer. Initial savings account `ACC-1001-ALICE` ($1,000.00). |
 | `bob` | `Customer@123` | `CUSTOMER` | Regular customer. Initial savings account `ACC-1002-BOB` ($1,000.00). |
-| `admin` | `Admin@123` | `ADMIN` | System administrator. User management, account inspection, platform stats. |
-| `auditor` | `Auditor@123` | `AUDITOR` | Regulatory auditor. Read-only access to ledger journals, balance proofs, and audit logs. |
+| `admin` | `Admin@12345` | `ADMIN` | System administrator. User management, account inspection, platform stats. |
+| `auditor` | `Auditor@12345` | `AUDITOR` | Regulatory auditor. Read-only access to ledger journals, balance proofs, and audit logs. |
 
 > **Note:** The UI login page features 1-click **Quick Fill** buttons to instantly populate credentials for any of these demo roles.
 

@@ -31,7 +31,7 @@ export const AuditorAuditLogViewer = () => {
     setError(null);
     try {
       const data = await auditService.getAllLogs();
-      setLogs(data);
+      setLogs(Array.isArray(data) ? data : (data?.content || []));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to retrieve append-only audit trail logs');
     } finally {

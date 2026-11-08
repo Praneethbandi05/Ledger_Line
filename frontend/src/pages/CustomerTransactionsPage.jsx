@@ -32,7 +32,7 @@ export const CustomerTransactionsPage = () => {
     setError(null);
     try {
       const data = await transactionService.getMyTransactions();
-      setTransactions(data);
+      setTransactions(Array.isArray(data) ? data : (data?.content || []));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to retrieve transaction records');
     } finally {

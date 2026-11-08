@@ -32,7 +32,7 @@ export const AdminTransactionOverview = () => {
     setError(null);
     try {
       const data = await transactionService.getAllTransactions();
-      setTransactions(data);
+      setTransactions(Array.isArray(data) ? data : (data?.content || []));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to retrieve transactions');
     } finally {

@@ -38,9 +38,9 @@ export const AdminDashboard = () => {
         accountService.getAllAccounts(),
         transactionService.getAllTransactions(),
       ]);
-      setUsers(usersData);
-      setAccounts(accountsData);
-      setTransactions(txData);
+      setUsers(Array.isArray(usersData) ? usersData : (usersData?.content || []));
+      setAccounts(Array.isArray(accountsData) ? accountsData : (accountsData?.content || []));
+      setTransactions(Array.isArray(txData) ? txData : (txData?.content || []));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load administrative records');
     } finally {

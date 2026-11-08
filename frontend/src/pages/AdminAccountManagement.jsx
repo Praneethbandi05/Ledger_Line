@@ -29,7 +29,7 @@ export const AdminAccountManagement = () => {
     setError(null);
     try {
       const data = await accountService.getAllAccounts();
-      setAccounts(data);
+      setAccounts(Array.isArray(data) ? data : (data?.content || []));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to retrieve platform accounts');
     } finally {

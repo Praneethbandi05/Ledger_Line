@@ -29,7 +29,18 @@ export const LoginPage = () => {
       }
       navigate('/dashboard');
     } catch (err) {
-      const serverMessage = err.response?.data?.message || err.message || 'Authentication failed';
+      let serverMessage = err.response?.data?.message;
+      if (!serverMessage) {
+        if (err.response?.status === 500) {
+          serverMessage = 'Backend server returned an error (500). Please verify the backend and PostgreSQL are running.';
+        } else if (err.response?.status === 401) {
+          serverMessage = 'Invalid username or password';
+        } else if (err.code === 'ERR_NETWORK') {
+          serverMessage = 'Cannot connect to backend server. Please verify backend is running on port 8080.';
+        } else {
+          serverMessage = err.message || 'Authentication failed';
+        }
+      }
       setError(serverMessage);
     } finally {
       setLoading(false);

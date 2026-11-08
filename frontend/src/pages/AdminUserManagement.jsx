@@ -31,7 +31,7 @@ export const AdminUserManagement = () => {
     setError(null);
     try {
       const data = await adminService.getAllUsers();
-      setUsers(data);
+      setUsers(Array.isArray(data) ? data : (data?.content || []));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to retrieve user directory');
     } finally {

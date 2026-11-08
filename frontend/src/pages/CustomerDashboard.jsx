@@ -48,8 +48,8 @@ export const CustomerDashboard = () => {
         accountService.getMyAccounts(),
         transactionService.getMyTransactions(),
       ]);
-      setAccounts(accountsData);
-      setTransactions(txData);
+      setAccounts(Array.isArray(accountsData) ? accountsData : (accountsData?.content || []));
+      setTransactions(Array.isArray(txData) ? txData : (txData?.content || []));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load account data');
     } finally {

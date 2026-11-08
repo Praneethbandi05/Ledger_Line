@@ -28,7 +28,7 @@ export const AuditorLedgerExplorer = () => {
     setError(null);
     try {
       const data = await transactionService.getAllLedgerEntries();
-      setEntries(data);
+      setEntries(Array.isArray(data) ? data : (data?.content || []));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to retrieve raw double-entry ledger journal');
     } finally {
