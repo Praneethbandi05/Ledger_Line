@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { accountService } from '../services/accountService';
 import { transactionService } from '../services/transactionService';
@@ -171,7 +172,7 @@ export const CustomerDashboard = () => {
             </div>
 
             {accounts.map((acc) => (
-              <div key={acc.id} className="stat-card">
+              <Link key={acc.id} to={`/customer/accounts/${acc.id}`} className="stat-card" style={{ textDecoration: 'none', display: 'block', transition: 'transform 0.2s' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div className="stat-label">
                     {acc.accountType} Account
@@ -191,7 +192,7 @@ export const CustomerDashboard = () => {
                 <div className="stat-subtext" style={{ fontFamily: 'var(--font-mono)' }}>
                   {acc.accountNumber} • {acc.currency}
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
 
@@ -204,9 +205,14 @@ export const CustomerDashboard = () => {
                   Traceable double-entry transactions signed with persistent idempotency
                 </span>
               </div>
-              <button onClick={loadData} className="btn btn-secondary btn-sm" disabled={loading}>
-                Refresh
-              </button>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <Link to="/customer/transactions" className="btn btn-secondary btn-sm">
+                  Full Journal
+                </Link>
+                <button onClick={loadData} className="btn btn-secondary btn-sm" disabled={loading}>
+                  Refresh
+                </button>
+              </div>
             </div>
 
             {loading ? (

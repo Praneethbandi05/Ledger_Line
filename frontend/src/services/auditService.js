@@ -6,6 +6,11 @@ export const auditService = {
     return response.data.data;
   },
 
+  getAuditLogs: async (params = {}) => {
+    const response = await api.get('/audit/logs', { params });
+    return response.data.data;
+  },
+
   getLogsByActor: async (username) => {
     const response = await api.get(`/audit/logs/actor/${username}`);
     return response.data.data;

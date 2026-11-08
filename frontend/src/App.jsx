@@ -4,8 +4,21 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { Navbar } from './components/Navbar';
 import { LoginPage } from './pages/LoginPage';
 import { CustomerDashboard } from './pages/CustomerDashboard';
+import { CustomerAccountDetails } from './pages/CustomerAccountDetails';
+import { CustomerDepositPage } from './pages/CustomerDepositPage';
+import { CustomerWithdrawPage } from './pages/CustomerWithdrawPage';
+import { CustomerTransferPage } from './pages/CustomerTransferPage';
+import { CustomerTransactionsPage } from './pages/CustomerTransactionsPage';
+import { CustomerStatementPage } from './pages/CustomerStatementPage';
+import { CustomerProfilePage } from './pages/CustomerProfilePage';
 import { AdminDashboard } from './pages/AdminDashboard';
+import { AdminUserManagement } from './pages/AdminUserManagement';
+import { AdminAccountManagement } from './pages/AdminAccountManagement';
+import { AdminTransactionOverview } from './pages/AdminTransactionOverview';
 import { AuditorDashboard } from './pages/AuditorDashboard';
+import { AuditorTransactionExplorer } from './pages/AuditorTransactionExplorer';
+import { AuditorLedgerExplorer } from './pages/AuditorLedgerExplorer';
+import { AuditorAuditLogViewer } from './pages/AuditorAuditLogViewer';
 
 // Protected layout wrapper
 const ProtectedLayout = ({ children, allowedRoles }) => {
@@ -76,9 +89,17 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <Routes>
-          {/* Public authentication route */}
+          {/* Public authentication routes */}
           <Route
             path="/login"
+            element={
+              <PublicOnlyRoute>
+                <LoginPage />
+              </PublicOnlyRoute>
+            }
+          />
+          <Route
+            path="/register"
             element={
               <PublicOnlyRoute>
                 <LoginPage />
@@ -96,7 +117,7 @@ export default function App() {
             }
           />
 
-          {/* Direct role routes with role guards */}
+          {/* CUSTOMER ROUTES */}
           <Route
             path="/customer"
             element={
@@ -105,7 +126,72 @@ export default function App() {
               </ProtectedLayout>
             }
           />
+          <Route
+            path="/customer/accounts"
+            element={
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']}>
+                <CustomerAccountDetails />
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/customer/accounts/:accountId"
+            element={
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']}>
+                <CustomerAccountDetails />
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/customer/deposit"
+            element={
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']}>
+                <CustomerDepositPage />
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/customer/withdraw"
+            element={
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']}>
+                <CustomerWithdrawPage />
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/customer/transfer"
+            element={
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']}>
+                <CustomerTransferPage />
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/customer/transactions"
+            element={
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']}>
+                <CustomerTransactionsPage />
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/customer/statements"
+            element={
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']}>
+                <CustomerStatementPage />
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/customer/profile"
+            element={
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']}>
+                <CustomerProfilePage />
+              </ProtectedLayout>
+            }
+          />
 
+          {/* ADMIN ROUTES */}
           <Route
             path="/admin"
             element={
@@ -114,12 +200,61 @@ export default function App() {
               </ProtectedLayout>
             }
           />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedLayout allowedRoles={['ADMIN']}>
+                <AdminUserManagement />
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/admin/accounts"
+            element={
+              <ProtectedLayout allowedRoles={['ADMIN']}>
+                <AdminAccountManagement />
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/admin/transactions"
+            element={
+              <ProtectedLayout allowedRoles={['ADMIN']}>
+                <AdminTransactionOverview />
+              </ProtectedLayout>
+            }
+          />
 
+          {/* AUDITOR ROUTES */}
           <Route
             path="/auditor"
             element={
               <ProtectedLayout allowedRoles={['AUDITOR', 'ADMIN']}>
                 <AuditorDashboard />
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/auditor/transactions"
+            element={
+              <ProtectedLayout allowedRoles={['AUDITOR', 'ADMIN']}>
+                <AuditorTransactionExplorer />
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/auditor/ledger"
+            element={
+              <ProtectedLayout allowedRoles={['AUDITOR', 'ADMIN']}>
+                <AuditorLedgerExplorer />
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/auditor/audit-logs"
+            element={
+              <ProtectedLayout allowedRoles={['AUDITOR', 'ADMIN']}>
+                <AuditorAuditLogViewer />
               </ProtectedLayout>
             }
           />

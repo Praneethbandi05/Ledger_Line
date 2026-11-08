@@ -80,4 +80,9 @@ export const transactionService = {
     const response = await api.get('/transactions/ledger');
     return response.data.data;
   },
+
+  getAccountStatement: async (accountId) => {
+    const response = await api.get(`/transactions/statement/${accountId}`);
+    return response.data.data;
+  },
 };
