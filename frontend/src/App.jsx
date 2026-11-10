@@ -20,7 +20,7 @@ import { AuditorTransactionExplorer } from './pages/AuditorTransactionExplorer';
 import { AuditorLedgerExplorer } from './pages/AuditorLedgerExplorer';
 import { AuditorAuditLogViewer } from './pages/AuditorAuditLogViewer';
 
-// Protected layout wrapper
+// Protected layout wrapper with page-specific breadcrumb
 const ProtectedLayout = ({ children, allowedRoles, breadcrumb }) => {
   const { isAuthenticated, loading, role } = useAuth();
 
@@ -68,7 +68,7 @@ const PublicOnlyRoute = ({ children }) => {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--bg-main)' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#F8FAF8' }}>
         <div className="spinner" style={{ width: '40px', height: '40px' }} />
       </div>
     );
@@ -108,17 +108,17 @@ export default function App() {
           <Route
             path="/dashboard"
             element={
-              <ProtectedLayout>
+              <ProtectedLayout breadcrumb="Workspace / Overview">
                 <RoleBasedDashboard />
               </ProtectedLayout>
             }
           />
 
-          {/* CUSTOMER ROUTES */}
+          {/* CUSTOMER DEDICATED ROUTES */}
           <Route
             path="/customer"
             element={
-              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']}>
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']} breadcrumb="Workspace / Overview">
                 <CustomerDashboard />
               </ProtectedLayout>
             }
@@ -126,7 +126,7 @@ export default function App() {
           <Route
             path="/customer/accounts"
             element={
-              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']}>
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']} breadcrumb="Portfolio / Accounts">
                 <CustomerAccountDetails />
               </ProtectedLayout>
             }
@@ -134,7 +134,7 @@ export default function App() {
           <Route
             path="/customer/accounts/:accountId"
             element={
-              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']}>
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']} breadcrumb="Portfolio / Account Details">
                 <CustomerAccountDetails />
               </ProtectedLayout>
             }
@@ -142,7 +142,7 @@ export default function App() {
           <Route
             path="/customer/deposit"
             element={
-              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']}>
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']} breadcrumb="Money Movement / Deposit">
                 <CustomerDepositPage />
               </ProtectedLayout>
             }
@@ -150,7 +150,7 @@ export default function App() {
           <Route
             path="/customer/withdraw"
             element={
-              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']}>
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']} breadcrumb="Money Movement / Withdraw">
                 <CustomerWithdrawPage />
               </ProtectedLayout>
             }
@@ -158,7 +158,7 @@ export default function App() {
           <Route
             path="/customer/transfer"
             element={
-              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']}>
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']} breadcrumb="Money Movement / Transfer">
                 <CustomerTransferPage />
               </ProtectedLayout>
             }
@@ -166,7 +166,7 @@ export default function App() {
           <Route
             path="/customer/transactions"
             element={
-              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']}>
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']} breadcrumb="Auditable Ledger / Activity">
                 <CustomerTransactionsPage />
               </ProtectedLayout>
             }
@@ -174,7 +174,7 @@ export default function App() {
           <Route
             path="/customer/statements"
             element={
-              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']}>
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']} breadcrumb="Records / Official Statements">
                 <CustomerStatementPage />
               </ProtectedLayout>
             }
@@ -182,67 +182,59 @@ export default function App() {
           <Route
             path="/customer/profile"
             element={
-              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']}>
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']} breadcrumb="Settings / Profile & Security">
                 <CustomerProfilePage />
               </ProtectedLayout>
             }
           />
 
-          {/* ADMIN ROUTES */}
+          {/* ADMIN DEDICATED ROUTES */}
           <Route
             path="/admin"
             element={
-              <ProtectedLayout allowedRoles={['ADMIN']}>
+              <ProtectedLayout allowedRoles={['ADMIN']} breadcrumb="Administration / Overview">
                 <AdminDashboard />
-              </ProtectedLayout>
-            }
-          />
-          <Route
-            path="/admin/users"
-            element={
-              <ProtectedLayout allowedRoles={['ADMIN']}>
-                <AdminUserManagement />
               </ProtectedLayout>
             }
           />
           <Route
             path="/admin/accounts"
             element={
-              <ProtectedLayout allowedRoles={['ADMIN']}>
+              <ProtectedLayout allowedRoles={['ADMIN']} breadcrumb="Governance / Accounts & Approvals">
                 <AdminAccountManagement />
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedLayout allowedRoles={['ADMIN']} breadcrumb="Governance / User Directory">
+                <AdminUserManagement />
               </ProtectedLayout>
             }
           />
           <Route
             path="/admin/transactions"
             element={
-              <ProtectedLayout allowedRoles={['ADMIN']}>
+              <ProtectedLayout allowedRoles={['ADMIN']} breadcrumb="Governance / Platform Transactions">
                 <AdminTransactionOverview />
               </ProtectedLayout>
             }
           />
 
-          {/* AUDITOR ROUTES */}
+          {/* AUDITOR DEDICATED ROUTES */}
           <Route
             path="/auditor"
             element={
-              <ProtectedLayout allowedRoles={['AUDITOR', 'ADMIN']}>
+              <ProtectedLayout allowedRoles={['AUDITOR', 'ADMIN']} breadcrumb="Compliance / Overview">
                 <AuditorDashboard />
-              </ProtectedLayout>
-            }
-          />
-          <Route
-            path="/auditor/transactions"
-            element={
-              <ProtectedLayout allowedRoles={['AUDITOR', 'ADMIN']}>
-                <AuditorTransactionExplorer />
               </ProtectedLayout>
             }
           />
           <Route
             path="/auditor/ledger"
             element={
-              <ProtectedLayout allowedRoles={['AUDITOR', 'ADMIN']}>
+              <ProtectedLayout allowedRoles={['AUDITOR', 'ADMIN']} breadcrumb="Compliance / Double-Entry Ledger">
                 <AuditorLedgerExplorer />
               </ProtectedLayout>
             }
@@ -250,8 +242,16 @@ export default function App() {
           <Route
             path="/auditor/audit-logs"
             element={
-              <ProtectedLayout allowedRoles={['AUDITOR', 'ADMIN']}>
+              <ProtectedLayout allowedRoles={['AUDITOR', 'ADMIN']} breadcrumb="Compliance / Audit Trail Logs">
                 <AuditorAuditLogViewer />
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/auditor/transactions"
+            element={
+              <ProtectedLayout allowedRoles={['AUDITOR', 'ADMIN']} breadcrumb="Compliance / Traceability Explorer">
+                <AuditorTransactionExplorer />
               </ProtectedLayout>
             }
           />

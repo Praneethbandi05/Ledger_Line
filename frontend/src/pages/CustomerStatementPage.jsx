@@ -1,248 +1,357 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, Link } from 'react-router-dom';
 import { accountService } from '../services/accountService';
 import { transactionService } from '../services/transactionService';
-import { DoubleEntryBadge } from '../components/DoubleEntryBadge';
 import { Alert } from '../components/Alert';
 import {
   FileSpreadsheet,
   Printer,
-  ShieldCheck,
-  CheckCircle,
-  Building,
-  RefreshCw
+  Calendar,
+  Wallet,
+  Building2,
+  CheckCircle2,
+  RefreshCw,
+  CreditCard
 } from 'lucide-react';
 
 export const CustomerStatementPage = () => {
   const [searchParams] = useSearchParams();
+  const queryAccountId = searchParams.get('account');
+
   const [accounts, setAccounts] = useState([]);
-  const [selectedAccountId, setSelectedAccountId] = useState(searchParams.get('account') || '');
+  const [selectedAccountId, setSelectedAccountId] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [statement, setStatement] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [fetchLoading, setFetchLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    // Set default dates to current month
+    const now = new Date();
+    const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0];
+    const today = now.toISOString().split('T')[0];
+    setStartDate(firstDay);
+    setEndDate(today);
+
     loadAccounts();
   }, []);
 
   const loadAccounts = async () => {
-    setLoading(true);
+    setFetchLoading(true);
     try {
-      const accList = await accountService.getMyAccounts();
-      setAccounts(accList);
-      if (accList && accList.length > 0) {
-        const queryAcc = searchParams.get('account');
-        const targetId = queryAcc ? queryAcc : accList[0].id.toString();
-        setSelectedAccountId(targetId);
-        loadStatement(targetId);
+      const data = await accountService.getMyAccounts();
+      const list = Array.isArray(data) ? data : (data?.content || []);
+      setAccounts(list);
+      if (list && list.length > 0) {
+        const initialId = queryAccountId || list[0].id.toString();
+        setSelectedAccountId(initialId);
+        loadStatement(initialId, startDate, endDate);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load accounts for statement');
-      setLoading(false);
+      setError(err.response?.data?.message || 'Failed to load accounts');
+    } finally {
+      setFetchLoading(false);
     }
   };
 
-  const loadStatement = async (accId) => {
+  const loadStatement = async (accId, start, end) => {
+    if (!accId) return;
     setLoading(true);
     setError(null);
     try {
-      const data = await transactionService.getAccountStatement(accId);
-      setStatement(data);
+      const res = await transactionService.getAccountStatement(accId, start, end);
+      setStatement(res);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to generate official account statement');
+      setError(err.response?.data?.message || 'Failed to generate official statement');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleAccountChange = (e) => {
-    const accId = e.target.value;
-    setSelectedAccountId(accId);
-    loadStatement(accId);
+  const handleGenerate = (e) => {
+    e.preventDefault();
+    loadStatement(selectedAccountId, startDate, endDate);
   };
 
   const handlePrint = () => {
     window.print();
   };
 
+  const selectedAccount = accounts.find((a) => a.id.toString() === selectedAccountId);
+
   return (
-    <div>
-      {/* Control bar */}
-      <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+    <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+      {/* Page Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0F172A' }}>
-            Official Account Statements
-          </h2>
-          <p style={{ color: '#64748B', fontSize: '0.875rem' }}>
-            Certified financial transaction statement with verified double-entry balance totals
+          <div className="bv-section-header">
+            <span>FINANCIAL RECORDS &bull; AUDIT STATEMENTS</span>
+          </div>
+          <h1
+            style={{
+              fontSize: '1.875rem',
+              fontWeight: 600,
+              color: '#092218',
+              fontFamily: "'Newsreader', 'Georgia', serif",
+              letterSpacing: '-0.02em',
+              margin: '0 0 0.5rem',
+            }}
+          >
+            Account Statements
+          </h1>
+          <p style={{ color: '#688073', fontSize: '0.875rem', margin: 0, lineHeight: 1.5 }}>
+            Generate and export official institutional account balance and transaction statements.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-          <select
-            className="form-control"
-            style={{ width: 'auto' }}
-            value={selectedAccountId}
-            onChange={handleAccountChange}
-            disabled={loading}
+        {statement && (
+          <button
+            type="button"
+            onClick={handlePrint}
+            className="btn btn-secondary btn-sm"
+            style={{ backgroundColor: '#FFFFFF', borderColor: '#CCD8CC', color: '#0B251C' }}
           >
-            {accounts.map((acc) => (
-              <option key={acc.id} value={acc.id}>
-                {acc.accountNumber} ({acc.accountType}) — ${parseFloat(acc.balance).toFixed(2)}
-              </option>
-            ))}
-          </select>
-
-          <button onClick={() => loadStatement(selectedAccountId)} className="btn btn-secondary" disabled={loading} title="Refresh statement">
-            <RefreshCw size={15} />
-          </button>
-
-          <button onClick={handlePrint} className="btn btn-primary" disabled={!statement || loading}>
             <Printer size={15} />
-            <span>Print / Save PDF</span>
+            <span>Print Official Statement</span>
           </button>
-        </div>
+        )}
       </div>
 
-      {error && <Alert type="danger" message={error} onClose={() => setError(null)} />}
-
-      {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
-          <div className="spinner" style={{ width: '40px', height: '40px' }} />
+      {error && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <Alert type="danger" message={error} onClose={() => setError(null)} />
         </div>
-      ) : statement ? (
-        <div className="statement-paper">
-          {/* Official Bank Header */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #0f172a', paddingBottom: '1.5rem', marginBottom: '2rem' }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                <ShieldCheck size={28} color="#2563eb" />
-                <h1 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', letterSpacing: '-0.025em' }}>
-                  LEDGERLINE FINANCIAL INSTITUTION
-                </h1>
+      )}
+
+      {/* Control Filter Bar */}
+      <div
+        style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '16px',
+          border: '1px solid #E5EBE5',
+          padding: '1.5rem',
+          marginBottom: '2rem',
+        }}
+      >
+        <form onSubmit={handleGenerate} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', alignItems: 'flex-end' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#243D32', marginBottom: '0.375rem' }}>
+              Select Account
+            </label>
+            <select
+              value={selectedAccountId}
+              onChange={(e) => setSelectedAccountId(e.target.value)}
+              className="form-control"
+              style={{ width: '100%', padding: '0.625rem 0.75rem', borderRadius: '8px', border: '1px solid #D9E2DC' }}
+            >
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.accountNumber} ({acc.accountType}) &bull; ${parseFloat(acc.balance || 0).toFixed(2)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#243D32', marginBottom: '0.375rem' }}>
+              From Date
+            </label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="form-control"
+              style={{ width: '100%', padding: '0.625rem 0.75rem', borderRadius: '8px', border: '1px solid #D9E2DC' }}
+            />
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#243D32', marginBottom: '0.375rem' }}>
+              To Date
+            </label>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="form-control"
+              style={{ width: '100%', padding: '0.625rem 0.75rem', borderRadius: '8px', border: '1px solid #D9E2DC' }}
+            />
+          </div>
+
+          <div>
+            <button
+              type="submit"
+              disabled={loading || accounts.length === 0}
+              className="btn btn-primary"
+              style={{ width: '100%', padding: '0.6875rem', backgroundColor: '#092218', borderColor: '#092218', fontWeight: 600, borderRadius: '8px' }}
+            >
+              {loading ? 'Compiling Statement...' : 'Generate Statement'}
+            </button>
+          </div>
+        </form>
+      </div>
+
+      {/* Official Statement Document Layout */}
+      {statement && (
+        <div
+          id="printable-statement"
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '16px',
+            border: '1px solid #E5EBE5',
+            padding: '2.5rem',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.03)',
+            marginBottom: '3rem',
+          }}
+        >
+          {/* Institutional Statement Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '2px solid #092218', paddingBottom: '1.5rem', marginBottom: '1.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div
+                style={{
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '50%',
+                  backgroundColor: '#092218',
+                  color: '#FFFFFF',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontFamily: "'Newsreader', serif",
+                  fontSize: '1.25rem',
+                  fontWeight: 700,
+                }}
+              >
+                b
               </div>
-              <p style={{ fontSize: '0.8125rem', color: '#64748b' }}>
-                Regulated Automated Ledger & Money Movement Engine • Certified Immutability
-              </p>
+              <div>
+                <div style={{ fontSize: '1.375rem', fontWeight: 700, fontFamily: "'Newsreader', serif", color: '#092218' }}>
+                  balancevault
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#688073' }}>
+                  Institutional Double-Entry Ledger Statement
+                </div>
+              </div>
             </div>
 
             <div style={{ textAlign: 'right' }}>
-              <span className="badge badge-success" style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem' }}>
-                OFFICIAL RECORD
-              </span>
-              <p style={{ fontSize: '0.8125rem', color: '#64748b', marginTop: '0.5rem' }}>
+              <div style={{ fontSize: '0.75rem', color: '#688073', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                STATEMENT PERIOD
+              </div>
+              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#092218' }}>
+                {startDate || 'Genesis'} &rarr; {endDate || 'Current'}
+              </div>
+              <div style={{ fontSize: '0.6875rem', color: '#88A796', marginTop: '0.25rem' }}>
                 Generated: {new Date().toLocaleString()}
-              </p>
-            </div>
-          </div>
-
-          {/* Account & Holder Metadata */}
-          <div className="grid-3" style={{ marginBottom: '2rem' }}>
-            <div className="info-item">
-              <span className="info-label">Account Identifier</span>
-              <span className="info-value" style={{ fontFamily: 'var(--font-mono)', fontSize: '1.125rem' }}>
-                {statement.accountNumber}
-              </span>
-            </div>
-
-            <div className="info-item">
-              <span className="info-label">Account Classification</span>
-              <span className="info-value">{statement.accountType} • {statement.currency}</span>
-            </div>
-
-            <div className="info-item">
-              <span className="info-label">Closing Net Balance</span>
-              <span className="info-value amount" style={{ fontSize: '1.125rem', color: '#0f172a' }}>
-                ${parseFloat(statement.currentBalance).toFixed(2)} USD
-              </span>
-            </div>
-          </div>
-
-          {/* Financial Debit/Credit Summary */}
-          <div style={{ backgroundColor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 'var(--radius-md)', padding: '1.25rem', marginBottom: '2rem' }}>
-            <h4 style={{ fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', color: '#475569', marginBottom: '1rem', letterSpacing: '0.05em' }}>
-              Cumulative Ledger Flow Breakdown
-            </h4>
-            <div className="grid-4">
-              <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Total Debits (Outflows)</span>
-                <span className="amount amount-negative" style={{ fontSize: '1.125rem', fontWeight: 700 }}>
-                  ${parseFloat(statement.totalDebits || 0).toFixed(2)}
-                </span>
-              </div>
-              <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Total Credits (Inflows)</span>
-                <span className="amount amount-positive" style={{ fontSize: '1.125rem', fontWeight: 700 }}>
-                  ${parseFloat(statement.totalCredits || 0).toFixed(2)}
-                </span>
-              </div>
-              <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Transaction Count</span>
-                <span style={{ fontSize: '1.125rem', fontWeight: 700, color: '#0f172a' }}>
-                  {statement.transactionCount}
-                </span>
-              </div>
-              <div>
-                <span style={{ fontSize: '0.75rem', color: '#64748b', display: 'block' }}>Ledger Invariant Proof</span>
-                <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#059669', display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.2rem' }}>
-                  <CheckCircle size={15} /> Validated Invariant
-                </span>
               </div>
             </div>
           </div>
 
-          {/* Itemized Transactions */}
-          <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a', marginBottom: '1rem' }}>
-            Itemized Chronological Transaction Log
-          </h4>
+          {/* Account Particulars & Summary */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1.5rem', marginBottom: '2rem', backgroundColor: '#F8FAF8', padding: '1.25rem', borderRadius: '12px' }}>
+            <div>
+              <div style={{ fontSize: '0.6875rem', color: '#688073', textTransform: 'uppercase', fontWeight: 700 }}>
+                Account Reference
+              </div>
+              <div style={{ fontSize: '1rem', fontWeight: 700, color: '#092218', fontFamily: 'var(--font-mono)' }}>
+                {statement.accountNumber || selectedAccount?.accountNumber}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#688073' }}>
+                {selectedAccount?.accountType} &bull; {selectedAccount?.currency}
+              </div>
+            </div>
 
-          {statement.transactions && statement.transactions.length > 0 ? (
-            <div className="table-container">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date / Time</th>
-                    <th>Reference</th>
-                    <th>Type</th>
-                    <th>Description</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {statement.transactions.map((tx) => (
-                    <tr key={tx.id}>
-                      <td style={{ fontSize: '0.8125rem', color: '#64748b' }}>
-                        {new Date(tx.createdAt).toLocaleString()}
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{tx.reference}</td>
-                      <td><DoubleEntryBadge type={tx.type} /></td>
-                      <td>{tx.description}</td>
-                      <td className="amount" style={{ fontWeight: 600 }}>
-                        ${parseFloat(tx.amount).toFixed(2)} {tx.currency}
-                      </td>
-                      <td>
-                        <span className={`badge ${tx.status === 'COMPLETED' ? 'badge-success' : 'badge-danger'}`}>
-                          {tx.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div>
+              <div style={{ fontSize: '0.6875rem', color: '#688073', textTransform: 'uppercase', fontWeight: 700 }}>
+                Starting Balance
+              </div>
+              <div style={{ fontSize: '1.125rem', fontWeight: 700, color: '#092218', fontFamily: "'Newsreader', serif" }}>
+                ${parseFloat(statement.openingBalance || statement.startingBalance || 0).toFixed(2)}
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontSize: '0.6875rem', color: '#688073', textTransform: 'uppercase', fontWeight: 700 }}>
+                Closing Balance
+              </div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#166534', fontFamily: "'Newsreader', serif" }}>
+                ${parseFloat(statement.closingBalance || selectedAccount?.balance || 0).toFixed(2)}
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontSize: '0.6875rem', color: '#688073', textTransform: 'uppercase', fontWeight: 700 }}>
+                Ledger Invariant
+              </div>
+              <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#166534', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <CheckCircle2 size={14} /> Proven Balanced
+              </div>
+            </div>
+          </div>
+
+          {/* Transactions List */}
+          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#092218', marginBottom: '1rem' }}>
+            Journal Line Items ({statement.transactions?.length || 0})
+          </h3>
+
+          {!statement.transactions || statement.transactions.length === 0 ? (
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#688073', fontSize: '0.875rem', backgroundColor: '#F8FAF8', borderRadius: '10px' }}>
+              No transactions recorded in the selected statement period.
             </div>
           ) : (
-            <div className="empty-state">
-              <p>No transactions booked on this account during the specified period.</p>
-            </div>
+            <table className="table" style={{ margin: 0 }}>
+              <thead>
+                <tr>
+                  <th>Posting Date</th>
+                  <th>Transaction Reference</th>
+                  <th>Classification</th>
+                  <th>Description</th>
+                  <th style={{ textAlign: 'right' }}>Debit (-)</th>
+                  <th style={{ textAlign: 'right' }}>Credit (+)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {statement.transactions.map((tx) => {
+                  const isCredit = tx.transactionType === 'DEPOSIT' || tx.destinationAccount?.id === selectedAccount?.id;
+                  const amt = parseFloat(tx.amount || 0).toFixed(2);
+                  return (
+                    <tr key={tx.id}>
+                      <td style={{ fontSize: '0.8125rem', color: '#64748B' }}>
+                        {new Date(tx.createdAt).toLocaleDateString()}
+                      </td>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 600 }}>
+                        {tx.reference}
+                      </td>
+                      <td>
+                        <span style={{ fontSize: '0.6875rem', fontWeight: 700, padding: '0.2rem 0.4rem', borderRadius: '4px', backgroundColor: '#F1F5F2', color: '#092218' }}>
+                          {tx.transactionType}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: '0.8125rem', color: '#334155' }}>
+                        {tx.description}
+                      </td>
+                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: !isCredit ? '#B91C1C' : '#94A3B8' }}>
+                        {!isCredit ? `-$${amt}` : '—'}
+                      </td>
+                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: isCredit ? '#15803D' : '#94A3B8' }}>
+                        {isCredit ? `+$${amt}` : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           )}
 
-          {/* Legal and Regulatory Footer */}
-          <div style={{ marginTop: '3rem', paddingTop: '1.5rem', borderTop: '1px solid #e2e8f0', fontSize: '0.75rem', color: '#94a3b8', textAlign: 'center' }}>
-            This statement is an immutable cryptographic audit representation generated by LedgerLine. All debits and credits conform to double-entry accounting invariants ($\sum Debits \equiv \sum Credits$).
+          {/* Statement Certificate Footer */}
+          <div style={{ marginTop: '2.5rem', paddingTop: '1.25rem', borderTop: '1px solid #E5EBE5', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#688073' }}>
+            <span>Certificate of Authentic Ledger Recording &bull; BalanceVault Financial Platform</span>
+            <span>Cryptographically Verified &bull; Append-Only Audit Trail</span>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 };

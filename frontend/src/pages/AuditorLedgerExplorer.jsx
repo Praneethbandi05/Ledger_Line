@@ -6,10 +6,9 @@ import {
   Search,
   Filter,
   CheckCircle,
-  AlertTriangle,
   RefreshCw,
   ShieldCheck,
-  Lock
+  Sparkles
 } from 'lucide-react';
 
 export const AuditorLedgerExplorer = () => {
@@ -17,7 +16,7 @@ export const AuditorLedgerExplorer = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState('ALL'); // 'ALL' | 'DEBIT' | 'CREDIT'
+  const [typeFilter, setTypeFilter] = useState('ALL');
 
   useEffect(() => {
     loadLedgerEntries();
@@ -36,7 +35,6 @@ export const AuditorLedgerExplorer = () => {
     }
   };
 
-  // Compute mathematical proof: sum(Debits) vs sum(Credits)
   const totalDebits = entries
     .filter((e) => e.entryType === 'DEBIT')
     .reduce((sum, e) => sum + parseFloat(e.amount || 0), 0);
@@ -60,171 +58,204 @@ export const AuditorLedgerExplorer = () => {
   });
 
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+    <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+      {/* Page Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0F172A' }}>
-            Double-Entry Ledger Journal Explorer
-          </h2>
-          <p style={{ color: '#64748B', fontSize: '0.875rem' }}>
-            Immutable, append-only debit and credit entries with cryptographic mathematical balance proofs
+          <div className="bv-section-header">
+            <span>COMPLIANCE &bull; GENERAL LEDGER JOURNAL</span>
+          </div>
+          <h1
+            style={{
+              fontSize: '1.875rem',
+              fontWeight: 600,
+              color: '#092218',
+              fontFamily: "'Newsreader', 'Georgia', serif",
+              letterSpacing: '-0.02em',
+              margin: '0 0 0.5rem',
+            }}
+          >
+            Double-Entry Ledger Journal
+          </h1>
+          <p style={{ color: '#688073', fontSize: '0.875rem', margin: 0, lineHeight: 1.5 }}>
+            Mathematical verification of double-entry equality. Every transaction produces matching debits and credits.
           </p>
         </div>
 
-        <button onClick={loadLedgerEntries} className="btn btn-secondary" disabled={loading}>
-          <RefreshCw size={15} />
-          <span>Refresh Journal</span>
+        <button
+          type="button"
+          onClick={loadLedgerEntries}
+          className="btn btn-secondary btn-sm"
+          disabled={loading}
+          style={{ backgroundColor: '#FFFFFF', borderColor: '#CCD8CC', color: '#0B251C' }}
+        >
+          <RefreshCw size={14} />
+          <span>Refresh</span>
         </button>
       </div>
 
-      {error && <Alert type="danger" message={error} onClose={() => setError(null)} />}
+      {error && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <Alert type="danger" message={error} onClose={() => setError(null)} />
+        </div>
+      )}
 
-      {/* Real-Time Balance Equation Proof Card */}
-      <div className="card" style={{ background: isBalanced ? 'linear-gradient(135deg, #064e3b 0%, #022c22 100%)' : 'linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%)', color: 'white', border: 'none', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <Scale size={28} color={isBalanced ? '#34d399' : '#f87171'} />
-            <div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>
-                {isBalanced ? 'Institutional Ledger Invariant: MATHEMATICALLY BALANCED' : 'Ledger Invariant Verification Check'}
-              </h3>
-              <p style={{ fontSize: '0.8125rem', color: '#a7f3d0' }}>
-                Double-Entry Invariant Rule: Σ(All Debits) ≡ Σ(All Credits)
-              </p>
-            </div>
+      {/* Mathematical Proof Card */}
+      <div
+        style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '16px',
+          border: '1px solid #E5EBE5',
+          padding: '1.75rem',
+          marginBottom: '2rem',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: '1.5rem',
+        }}
+      >
+        <div>
+          <div style={{ fontSize: '0.75rem', color: '#688073', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+            Total Debits (Dr)
           </div>
-
-          <span className="badge" style={{ backgroundColor: isBalanced ? '#065f46' : '#991b1b', color: isBalanced ? '#6ee7b7' : '#fecaca', fontSize: '0.8125rem', padding: '0.35rem 0.75rem' }}>
-            {isBalanced ? '✓ PROVEN EQUATION' : 'VERIFYING ENTRIES'}
-          </span>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#092218', fontFamily: "'Newsreader', serif" }}>
+            ${totalDebits.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: '#688073' }}>
+            {entries.filter((e) => e.entryType === 'DEBIT').length} debit postings
+          </div>
         </div>
 
-        <div className="grid-3">
-          <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)', padding: '1rem', borderRadius: 'var(--radius-sm)' }}>
-            <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '0.25rem' }}>
-              Cumulative Debits (Outflows)
-            </span>
-            <span style={{ fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-              ${totalDebits.toFixed(2)} USD
-            </span>
+        <div>
+          <div style={{ fontSize: '0.75rem', color: '#688073', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+            Total Credits (Cr)
           </div>
-
-          <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)', padding: '1rem', borderRadius: 'var(--radius-sm)' }}>
-            <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '0.25rem' }}>
-              Cumulative Credits (Inflows)
-            </span>
-            <span style={{ fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-mono)' }}>
-              ${totalCredits.toFixed(2)} USD
-            </span>
+          <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#092218', fontFamily: "'Newsreader', serif" }}>
+            ${totalCredits.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-
-          <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.08)', padding: '1rem', borderRadius: 'var(--radius-sm)' }}>
-            <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#94a3b8', display: 'block', marginBottom: '0.25rem' }}>
-              Invariant Discrepancy (Δ)
-            </span>
-            <span style={{ fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: isBalanced ? '#34d399' : '#f87171' }}>
-              ${difference.toFixed(4)} USD
-            </span>
+          <div style={{ fontSize: '0.75rem', color: '#688073' }}>
+            {entries.filter((e) => e.entryType === 'CREDIT').length} credit postings
           </div>
         </div>
-      </div>
 
-      {/* Filter and Search Bar */}
-      <div className="card" style={{ padding: '1rem', marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
-          <div style={{ flex: '1', minWidth: '240px', position: 'relative' }}>
-            <Search size={16} color="#94a3b8" style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }} />
-            <input
-              type="text"
-              className="form-control"
-              style={{ paddingLeft: '2.25rem' }}
-              placeholder="Search reference, account identifier, or narrative..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+        <div style={{ borderLeft: '1px solid #E5EBE5', paddingLeft: '1.5rem' }}>
+          <div style={{ fontSize: '0.75rem', color: '#688073', fontWeight: 600, textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+            Mathematical Proof Status
           </div>
-
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-            <Filter size={16} color="#64748b" />
-            <select
-              className="form-control"
-              style={{ width: 'auto' }}
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-            >
-              <option value="ALL">All Entries</option>
-              <option value="DEBIT">Debits Only</option>
-              <option value="CREDIT">Credits Only</option>
-            </select>
+          <div style={{ fontSize: '1.125rem', fontWeight: 700, color: isBalanced ? '#166534' : '#D97706', display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0.25rem 0' }}>
+            <CheckCircle size={18} />
+            <span>{isBalanced ? 'Σ Debits ≡ Σ Credits' : 'Ledger Invariant In Progress'}</span>
+          </div>
+          <div style={{ fontSize: '0.75rem', color: '#688073' }}>
+            Imbalance delta: ${difference.toFixed(4)}
           </div>
         </div>
       </div>
 
-      {/* Raw Ledger Entries Table */}
-      <div className="card">
-        <div className="card-header">
-          <div>
-            <h3 className="card-title">Immutable Journal Records</h3>
-            <span className="card-subtitle">Showing {filteredEntries.length} of {entries.length} raw entry/entries</span>
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.8125rem', color: '#64748b' }}>
-            <Lock size={14} color="#059669" />
-            <span>Hibernate @Immutable • Delete Prohibited</span>
-          </div>
+      {/* Filter Toolbar */}
+      <div
+        style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '12px',
+          border: '1px solid #E5EBE5',
+          padding: '1rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          gap: '1rem',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+        }}
+      >
+        <div style={{ flex: '1', minWidth: '220px', position: 'relative' }}>
+          <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#94A3B8' }} />
+          <input
+            type="text"
+            placeholder="Search by transaction reference or account..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ width: '100%', padding: '0.5rem 0.75rem 0.5rem 2.25rem', borderRadius: '8px', border: '1px solid #D9E2DC', fontSize: '0.875rem' }}
+          />
         </div>
 
-        {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
-            <div className="spinner" style={{ width: '36px', height: '36px' }} />
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.75rem', color: '#688073', fontWeight: 600 }}>Entry Type:</span>
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            style={{ padding: '0.45rem 0.75rem', borderRadius: '8px', border: '1px solid #D9E2DC', fontSize: '0.8125rem' }}
+          >
+            <option value="ALL">All Entries ({entries.length})</option>
+            <option value="DEBIT">Debits Only</option>
+            <option value="CREDIT">Credits Only</option>
+          </select>
+        </div>
+      </div>
+
+      {/* Table */}
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
+          <div className="spinner" style={{ width: '36px', height: '36px' }} />
+        </div>
+      ) : filteredEntries.length === 0 ? (
+        <div className="bv-empty-box">
+          <div className="bv-empty-icon">
+            <Sparkles size={24} />
           </div>
-        ) : filteredEntries.length === 0 ? (
-          <div className="empty-state">
-            <Scale size={48} className="empty-state-icon" />
-            <p>No double-entry records match your search criteria.</p>
-          </div>
-        ) : (
-          <div className="table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Entry ID</th>
-                  <th>Transaction Reference</th>
-                  <th>Account Identifier</th>
-                  <th>Entry Type</th>
-                  <th>Amount</th>
-                  <th>Balance After</th>
-                  <th>Timestamp</th>
-                  <th>Narrative Description</th>
+          <div className="bv-empty-title">No ledger entries recorded</div>
+          <p className="bv-empty-desc">
+            Ledger entries will generate automatically upon every financial transaction.
+          </p>
+        </div>
+      ) : (
+        <div className="table-container" style={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #E5EBE5', backgroundColor: '#FFFFFF' }}>
+          <table className="table" style={{ margin: 0 }}>
+            <thead>
+              <tr>
+                <th>Timestamp</th>
+                <th>Tx Reference</th>
+                <th>Account Affected</th>
+                <th>Type</th>
+                <th style={{ textAlign: 'right' }}>Debit Amount</th>
+                <th style={{ textAlign: 'right' }}>Credit Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredEntries.map((e) => (
+                <tr key={e.id}>
+                  <td style={{ fontSize: '0.8125rem', color: '#64748B' }}>
+                    {new Date(e.createdAt).toLocaleString()}
+                  </td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 600 }}>
+                    {e.transactionReference}
+                  </td>
+                  <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem' }}>
+                    {e.accountNumber}
+                  </td>
+                  <td>
+                    <span
+                      style={{
+                        fontSize: '0.6875rem',
+                        fontWeight: 700,
+                        padding: '0.2rem 0.5rem',
+                        borderRadius: '4px',
+                        backgroundColor: e.entryType === 'DEBIT' ? '#FEF2F2' : '#EAF5EE',
+                        color: e.entryType === 'DEBIT' ? '#991B1B' : '#166534',
+                      }}
+                    >
+                      {e.entryType}
+                    </span>
+                  </td>
+                  <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600, color: e.entryType === 'DEBIT' ? '#991B1B' : '#94A3B8' }}>
+                    {e.entryType === 'DEBIT' ? `$${parseFloat(e.amount).toFixed(2)}` : '—'}
+                  </td>
+                  <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontWeight: 600, color: e.entryType === 'CREDIT' ? '#166534' : '#94A3B8' }}>
+                    {e.entryType === 'CREDIT' ? `$${parseFloat(e.amount).toFixed(2)}` : '—'}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredEntries.map((e) => (
-                  <tr key={e.id}>
-                    <td style={{ fontFamily: 'var(--font-mono)' }}>#{e.id}</td>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{e.transactionReference}</td>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{e.accountNumber}</td>
-                    <td>
-                      <span className={`badge ${e.entryType === 'DEBIT' ? 'badge-danger' : 'badge-success'}`}>
-                        {e.entryType}
-                      </span>
-                    </td>
-                    <td className="amount" style={{ fontWeight: 600 }}>
-                      ${parseFloat(e.amount).toFixed(2)} {e.currency}
-                    </td>
-                    <td className="amount">
-                      ${parseFloat(e.balanceAfter).toFixed(2)}
-                    </td>
-                    <td style={{ fontSize: '0.8125rem', color: '#64748b' }}>
-                      {new Date(e.createdAt).toLocaleString()}
-                    </td>
-                    <td style={{ color: '#475569', fontSize: '0.8125rem' }}>{e.description}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 };

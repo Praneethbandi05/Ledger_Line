@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { AccountRequestModal } from './AccountRequestModal';
 import {
@@ -8,22 +8,18 @@ import {
   FileSpreadsheet,
   PlusCircle,
   ShieldCheck,
-  CheckCircle2,
-  ChevronRight,
-  Users,
-  Building2,
   Receipt,
   Scale,
-  Terminal,
-  Clock,
+  Users,
+  Building2,
   ArrowDownLeft,
   ArrowUpRight,
-  ArrowLeftRight
+  ArrowLeftRight,
+  UserCheck
 } from 'lucide-react';
 
 export const Sidebar = () => {
   const { role } = useAuth();
-  const location = useLocation();
   const [requestModalOpen, setRequestModalOpen] = useState(false);
 
   return (
@@ -39,10 +35,10 @@ export const Sidebar = () => {
 
         {/* Navigation Body */}
         <div className="bv-sidebar-nav">
-          <div className="bv-nav-section-title">WORKSPACE</div>
-
+          {/* CUSTOMER NAVIGATION */}
           {role === 'CUSTOMER' && (
             <>
+              <div className="bv-nav-section-title">WORKSPACE</div>
               <NavLink
                 to="/customer"
                 end
@@ -57,8 +53,45 @@ export const Sidebar = () => {
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <Wallet size={16} />
-                <span style={{ flex: 1 }}>Accounts</span>
-                <ChevronRight size={14} color="#5E8272" />
+                <span>Accounts</span>
+              </NavLink>
+
+              <div className="bv-nav-section-title" style={{ marginTop: '1.25rem' }}>
+                MONEY MOVEMENT
+              </div>
+              <NavLink
+                to="/customer/deposit"
+                className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
+              >
+                <ArrowDownLeft size={16} color="#34D399" />
+                <span>Deposit Funds</span>
+              </NavLink>
+
+              <NavLink
+                to="/customer/withdraw"
+                className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
+              >
+                <ArrowUpRight size={16} color="#FBBF24" />
+                <span>Withdraw Funds</span>
+              </NavLink>
+
+              <NavLink
+                to="/customer/transfer"
+                className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
+              >
+                <ArrowLeftRight size={16} color="#60A5FA" />
+                <span>Transfer Funds</span>
+              </NavLink>
+
+              <div className="bv-nav-section-title" style={{ marginTop: '1.25rem' }}>
+                RECORDS & LEDGER
+              </div>
+              <NavLink
+                to="/customer/transactions"
+                className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
+              >
+                <Receipt size={16} />
+                <span>Activity & Journal</span>
               </NavLink>
 
               <NavLink
@@ -66,39 +99,43 @@ export const Sidebar = () => {
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <FileSpreadsheet size={16} />
-                <span>Statements</span>
+                <span>Account Statements</span>
               </NavLink>
 
+              <div style={{ margin: '1rem 0 0.5rem', borderTop: '1px solid rgba(255,255,255,0.08)' }} />
               <button
                 type="button"
                 onClick={() => setRequestModalOpen(true)}
                 className="bv-nav-item bv-nav-item-action"
               >
                 <PlusCircle size={16} color="#34D399" />
-                <span>Account request</span>
+                <span>+ Request Account</span>
               </button>
-
-              <div style={{ margin: '0.75rem 0', borderTop: '1px solid rgba(255,255,255,0.06)' }} />
-
-              <NavLink
-                to="/customer/transactions"
-                className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
-              >
-                <Receipt size={16} />
-                <span>Activity & Ledger</span>
-              </NavLink>
             </>
           )}
 
+          {/* ADMIN NAVIGATION */}
           {role === 'ADMIN' && (
             <>
+              <div className="bv-nav-section-title">ADMINISTRATION</div>
               <NavLink
                 to="/admin"
                 end
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <LayoutDashboard size={16} />
-                <span>Overview</span>
+                <span>Admin Overview</span>
+              </NavLink>
+
+              <div className="bv-nav-section-title" style={{ marginTop: '1.25rem' }}>
+                GOVERNANCE
+              </div>
+              <NavLink
+                to="/admin/accounts"
+                className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
+              >
+                <Building2 size={16} />
+                <span>Accounts & Approvals</span>
               </NavLink>
 
               <NavLink
@@ -110,25 +147,19 @@ export const Sidebar = () => {
               </NavLink>
 
               <NavLink
-                to="/admin/accounts"
-                className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
-              >
-                <Building2 size={16} />
-                <span>Accounts & Approvals</span>
-              </NavLink>
-
-              <NavLink
                 to="/admin/transactions"
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <Receipt size={16} />
-                <span>Transactions</span>
+                <span>Platform Transactions</span>
               </NavLink>
             </>
           )}
 
+          {/* AUDITOR NAVIGATION */}
           {role === 'AUDITOR' && (
             <>
+              <div className="bv-nav-section-title">COMPLIANCE</div>
               <NavLink
                 to="/auditor"
                 end
@@ -138,6 +169,9 @@ export const Sidebar = () => {
                 <span>Compliance Overview</span>
               </NavLink>
 
+              <div className="bv-nav-section-title" style={{ marginTop: '1.25rem' }}>
+                IMMUTABLE AUDIT
+              </div>
               <NavLink
                 to="/auditor/ledger"
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
@@ -150,8 +184,8 @@ export const Sidebar = () => {
                 to="/auditor/audit-logs"
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
-                <Terminal size={16} />
-                <span>Audit Trail</span>
+                <ShieldCheck size={16} />
+                <span>Audit Trail Logs</span>
               </NavLink>
 
               <NavLink
@@ -159,7 +193,7 @@ export const Sidebar = () => {
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <Receipt size={16} />
-                <span>Transaction Explorer</span>
+                <span>Traceability Explorer</span>
               </NavLink>
             </>
           )}
@@ -167,20 +201,17 @@ export const Sidebar = () => {
 
         {/* Sidebar Footer Badge */}
         <div className="bv-sidebar-footer">
-          <div className="bv-protected-badge">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <ShieldCheck size={18} color="#34D399" />
-              <div>
-                <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#FFFFFF' }}>Protected ledger</div>
-                <div style={{ fontSize: '0.6875rem', color: '#95B2A4' }}>Secure by design</div>
-              </div>
+          <div className="bv-ledger-badge">
+            <div className="bv-badge-icon">
+              <ShieldCheck size={14} />
             </div>
-            <CheckCircle2 size={16} color="#34D399" />
+            <div className="bv-badge-content">
+              <div className="bv-badge-title">Protected ledger</div>
+              <div className="bv-badge-sub">Secure by design</div>
+            </div>
+            <div className="bv-badge-status-dot">✓</div>
           </div>
-
-          <div className="bv-sidebar-meta">
-            BALANCEVAULT &bull; PRIVATE
-          </div>
+          <div className="bv-sidebar-copyright">BALANCEVAULT &bull; PRIVATE</div>
         </div>
       </aside>
 
@@ -189,7 +220,6 @@ export const Sidebar = () => {
         isOpen={requestModalOpen}
         onClose={() => setRequestModalOpen(false)}
         onSuccess={() => {
-          // If on customer page, trigger reload or window event
           window.dispatchEvent(new CustomEvent('account-request-submitted'));
         }}
       />

@@ -31,9 +31,11 @@ export const CustomerDepositPage = () => {
     setFetchLoading(true);
     try {
       const data = await accountService.getMyAccounts();
-      setAccounts(data);
-      if (data && data.length > 0) {
-        setSelectedAccountNumber(data[0].accountNumber);
+      const list = Array.isArray(data) ? data : (data?.content || []);
+      const activeList = list.filter((a) => a.status === 'ACTIVE');
+      setAccounts(activeList);
+      if (activeList && activeList.length > 0) {
+        setSelectedAccountNumber(activeList[0].accountNumber);
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to load accounts');
@@ -53,7 +55,7 @@ export const CustomerDepositPage = () => {
 
     const parsed = parseFloat(amount);
     if (!amount || isNaN(parsed) || parsed <= 0) {
-      setError('Amount must be strictly greater than $0.00');
+      setError('Deposit amount must be strictly greater than $0.00');
       return;
     }
 
@@ -67,7 +69,7 @@ export const CustomerDepositPage = () => {
       const res = await transactionService.deposit(
         selectedAccountNumber,
         parsed.toFixed(2),
-        description.trim() || 'Customer deposit'
+        description.trim() || 'Customer cash deposit'
       );
       setSuccessResult(res.data);
       setAmount('');
@@ -82,109 +84,149 @@ export const CustomerDepositPage = () => {
   const selectedAccount = accounts.find((a) => a.accountNumber === selectedAccountNumber);
 
   return (
-    <div style={{ maxWidth: '680px', margin: '0 auto' }}>
-      <div style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
-        <div style={{ display: 'inline-flex', padding: '0.75rem', borderRadius: '50%', backgroundColor: '#ecfdf5', marginBottom: '0.75rem' }}>
-          <ArrowDownLeft size={32} color="#059669" />
+    <div style={{ maxWidth: '640px', margin: '0 auto' }}>
+      {/* Page Header */}
+      <div style={{ marginBottom: '2rem' }}>
+        <div className="bv-section-header">
+          <span>MONEY MOVEMENT &bull; INFLOW</span>
         </div>
-        <h2 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0F172A' }}>
-          Deposit Funds into Account
-        </h2>
-        <p style={{ color: '#64748B', fontSize: '0.875rem' }}>
-          Institutional double-entry booking: Cleared against institutional inflow reserve
+        <h1
+          style={{
+            fontSize: '1.875rem',
+            fontWeight: 600,
+            color: '#092218',
+            fontFamily: "'Newsreader', 'Georgia', serif",
+            letterSpacing: '-0.02em',
+            margin: '0 0 0.5rem',
+          }}
+        >
+          Deposit Funds
+        </h1>
+        <p style={{ color: '#688073', fontSize: '0.875rem', margin: 0, lineHeight: 1.5 }}>
+          Funds are credited directly to your selected active account and balanced against institutional reserve entries.
         </p>
       </div>
 
-      {error && <Alert type="danger" message={error} onClose={() => setError(null)} />}
+      {error && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <Alert type="danger" message={error} onClose={() => setError(null)} />
+        </div>
+      )}
 
+      {/* Success Notification */}
       {successResult && (
-        <div className="card" style={{ borderLeft: '4px solid #10b981', marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#059669', fontWeight: 700, marginBottom: '0.5rem' }}>
+        <div
+          style={{
+            backgroundColor: '#EAF5EE',
+            border: '1px solid #C4E5CE',
+            borderRadius: '16px',
+            padding: '1.5rem',
+            marginBottom: '1.75rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', color: '#166534', fontWeight: 700, marginBottom: '0.5rem' }}>
             <CheckCircle2 size={20} />
             <span>Deposit Successfully Processed & Audited</span>
           </div>
-          <p style={{ fontSize: '0.875rem', color: '#475569', marginBottom: '1rem' }}>
+          <p style={{ fontSize: '0.84rem', color: '#334155', marginBottom: '1rem' }}>
             Transaction Reference: <strong style={{ fontFamily: 'var(--font-mono)' }}>{successResult.reference}</strong>
           </p>
-          <div className="grid-2" style={{ marginBottom: '1rem' }}>
-            <div className="info-item">
-              <span className="info-label">Amount Credited</span>
-              <span className="info-value amount amount-positive">${parseFloat(successResult.amount).toFixed(2)}</span>
+          <div style={{ display: 'flex', gap: '2rem', marginBottom: '1.25rem' }}>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: '#688073' }}>Amount Credited</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#166534', fontFamily: "'Newsreader', serif" }}>
+                +${parseFloat(successResult.amount).toFixed(2)}
+              </div>
             </div>
-            <div className="info-item">
-              <span className="info-label">Account Number</span>
-              <span className="info-value" style={{ fontFamily: 'var(--font-mono)' }}>{selectedAccountNumber}</span>
+            <div>
+              <div style={{ fontSize: '0.75rem', color: '#688073' }}>Destination Account</div>
+              <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#092218', fontFamily: 'var(--font-mono)' }}>
+                {selectedAccountNumber}
+              </div>
             </div>
           </div>
           <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <Link to="/customer/transactions" className="btn btn-secondary btn-sm">
-              View In Transaction Journal
+            <Link to="/customer/transactions" className="btn btn-secondary btn-sm" style={{ backgroundColor: '#FFFFFF' }}>
+              View in Activity Journal &rarr;
             </Link>
-            <Link to="/customer/accounts" className="btn btn-primary btn-sm">
+            <Link to="/customer/accounts" className="btn btn-primary btn-sm" style={{ backgroundColor: '#092218' }}>
               Return to Accounts
             </Link>
           </div>
         </div>
       )}
 
-      <div className="form-card">
+      {/* Main Form Card */}
+      <div
+        style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '16px',
+          border: '1px solid #E5EBE5',
+          padding: '2rem',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+        }}
+      >
         {fetchLoading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
-            <div className="spinner" style={{ width: '32px', height: '32px' }} />
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}>
+            <div className="spinner" style={{ width: '30px', height: '30px' }} />
+          </div>
+        ) : accounts.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '1.5rem 0' }}>
+            <p style={{ color: '#688073', fontSize: '0.9375rem', marginBottom: '1rem' }}>
+              You do not have any active accounts to receive deposits.
+            </p>
+            <Link
+              to="/customer/accounts"
+              className="btn btn-primary btn-sm"
+              style={{ backgroundColor: '#092218', borderColor: '#092218' }}
+            >
+              Request an Account
+            </Link>
           </div>
         ) : (
           <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label className="form-label">Destination Account</label>
+            {/* Destination Account */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#243D32', marginBottom: '0.5rem' }}>
+                Destination Account
+              </label>
               <select
                 className="form-control"
                 value={selectedAccountNumber}
                 onChange={(e) => setSelectedAccountNumber(e.target.value)}
-                disabled={loading}
+                required
+                style={{ width: '100%', padding: '0.75rem 0.875rem', borderRadius: '8px', border: '1px solid #D9E2DC' }}
               >
                 {accounts.map((acc) => (
                   <option key={acc.id} value={acc.accountNumber}>
-                    {acc.accountNumber} ({acc.accountType}) — Available: ${parseFloat(acc.balance).toFixed(2)}
+                    {acc.accountNumber} ({acc.accountType}) &bull; Available: ${parseFloat(acc.balance || 0).toFixed(2)} {acc.currency}
                   </option>
                 ))}
               </select>
             </div>
 
-            {selectedAccount && (
-              <div style={{ backgroundColor: '#f8fafc', padding: '0.75rem 1rem', borderRadius: 'var(--radius-sm)', marginBottom: '1.25rem', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.8125rem', color: '#64748b' }}>Current Balance</span>
-                <span style={{ fontSize: '1rem', fontWeight: 700, color: '#0f172a' }}>
-                  ${parseFloat(selectedAccount.balance).toFixed(2)} {selectedAccount.currency}
-                </span>
-              </div>
-            )}
-
-            <div className="form-group">
-              <label className="form-label">Deposit Amount (USD)</label>
-              <div style={{ position: 'relative' }}>
-                <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', fontWeight: 600, color: '#64748b' }}>$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  className="form-control"
-                  style={{ paddingLeft: '2rem' }}
-                  placeholder="0.00"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  disabled={loading}
-                  required
-                />
-              </div>
-
-              {/* Quick Amount Chips */}
-              <div className="quick-amounts">
-                {[25, 50, 100, 250, 500, 1000].map((val) => (
+            {/* Quick Amount Selector */}
+            <div style={{ marginBottom: '1.25rem' }}>
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#243D32', marginBottom: '0.5rem' }}>
+                Quick Amounts
+              </label>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {[50, 100, 250, 500, 1000].map((val) => (
                   <button
                     key={val}
                     type="button"
-                    className={`quick-amount-chip ${amount === val.toString() ? 'selected' : ''}`}
                     onClick={() => handleQuickAmount(val)}
+                    style={{
+                      padding: '0.4rem 0.875rem',
+                      borderRadius: '8px',
+                      border: '1px solid #D9E2DC',
+                      backgroundColor: amount === val.toString() ? '#092218' : '#F8FAF8',
+                      color: amount === val.toString() ? '#FFFFFF' : '#092218',
+                      fontSize: '0.8125rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                    }}
                   >
                     +${val}
                   </button>
@@ -192,38 +234,69 @@ export const CustomerDepositPage = () => {
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Transaction Narrative / Reference Memo</label>
+            {/* Amount Input */}
+            <div style={{ marginBottom: '1.5rem' }}>
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#243D32', marginBottom: '0.5rem' }}>
+                Deposit Amount ($ USD)
+              </label>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', fontWeight: 600, color: '#688073' }}>
+                  $
+                </span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  placeholder="0.00"
+                  className="form-control"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem 0.875rem 0.75rem 2rem',
+                    borderRadius: '8px',
+                    border: '1px solid #D9E2DC',
+                    fontSize: '1.125rem',
+                    fontWeight: 600,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Description */}
+            <div style={{ marginBottom: '1.75rem' }}>
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, color: '#243D32', marginBottom: '0.5rem' }}>
+                Transaction Memo / Description
+              </label>
               <input
                 type="text"
+                placeholder="e.g. Payroll deposit, personal transfer"
                 className="form-control"
-                placeholder="e.g. Payroll direct deposit, savings allocation"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                disabled={loading}
+                style={{ width: '100%', padding: '0.75rem 0.875rem', borderRadius: '8px', border: '1px solid #D9E2DC' }}
               />
             </div>
 
-            <div style={{ backgroundColor: '#eff6ff', border: '1px solid #bfdbfe', padding: '0.875rem 1rem', borderRadius: 'var(--radius-sm)', marginBottom: '1.5rem', fontSize: '0.8125rem', color: '#1e40af' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: 600, marginBottom: '0.25rem' }}>
-                <ShieldCheck size={16} />
-                <span>Protected by PostgreSQL Idempotency</span>
-              </div>
-              Each submission generates a unique crypto UUID idempotency key preventing accidental duplicate deposits.
-            </div>
-
-            <button type="submit" className="btn btn-primary btn-block" disabled={loading || accounts.length === 0}>
-              {loading ? (
-                <>
-                  <div className="spinner" style={{ width: '16px', height: '16px' }} />
-                  <span>Executing Double-Entry Booking...</span>
-                </>
-              ) : (
-                <>
-                  <ArrowDownLeft size={16} />
-                  <span>Confirm and Deposit ${amount ? parseFloat(amount).toFixed(2) : '0.00'}</span>
-                </>
-              )}
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading || accounts.length === 0}
+              style={{
+                width: '100%',
+                padding: '0.875rem',
+                backgroundColor: '#092218',
+                color: '#FFFFFF',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '0.9375rem',
+                fontWeight: 600,
+                cursor: loading ? 'not-allowed' : 'pointer',
+                opacity: loading ? 0.7 : 1,
+              }}
+            >
+              {loading ? 'Processing Institutional Deposit...' : 'Confirm Cash Deposit'}
             </button>
           </form>
         )}

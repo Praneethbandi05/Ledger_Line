@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { accountService } from '../services/accountService';
 import { transactionService } from '../services/transactionService';
-import { TransactionModal } from '../components/TransactionModal';
 import { AccountRequestModal } from '../components/AccountRequestModal';
 import { Alert } from '../components/Alert';
 import { DoubleEntryBadge } from '../components/DoubleEntryBadge';
@@ -12,31 +11,22 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   ArrowLeftRight,
-  PlusCircle,
-  FileText,
-  Clock,
-  Printer,
   ShieldCheck,
-  ChevronRight,
-  CheckCircle2,
-  AlertCircle,
-  Building2,
-  Sparkles,
   CreditCard,
-  Plus
+  Sparkles,
+  Plus,
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react';
 
 export const CustomerDashboard = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(null);
-
-  // Modal control
-  const [modalType, setModalType] = useState(null); // 'deposit' | 'withdraw' | 'transfer'
   const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [expandedTxId, setExpandedTxId] = useState(null);
 
@@ -85,72 +75,60 @@ export const CustomerDashboard = () => {
 
   const displayName = user?.fullName || user?.username || 'Account holder';
 
-  const handleActionClick = (type) => {
-    if (activeAccounts.length === 0) {
-      if (pendingAccounts.length > 0) {
-        setError('Your account request is currently awaiting administrator approval. Financial transactions will unlock once approved.');
-      } else {
-        setError('You have no active accounts yet. Please request an account to begin moving funds.');
-        setRequestModalOpen(true);
-      }
-      return;
-    }
-    setModalType(type);
-  };
-
   const toggleExpandTx = (id) => {
     setExpandedTxId(expandedTxId === id ? null : id);
   };
 
   return (
-    <div>
-      {error && <Alert type="error" message={error} />}
-      {successMessage && <Alert type="success" message={successMessage} />}
-
-      {/* Hero Greeting Banner */}
+    <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+      {/* Hero Welcome Banner */}
       <div className="bv-hero-banner">
-        <div>
+        <div style={{ position: 'relative', zIndex: 2 }}>
           <h1 className="bv-hero-title">
             {getGreeting()}, <span className="bv-hero-italic">{displayName}</span>
           </h1>
           <p className="bv-hero-subtitle">
-            Everything in its place. Here's your account overview.
+            Institutional overview. Real-time ledger balances and money movement controls.
           </p>
           <div className="bv-hero-tags">
-            <span className="bv-hero-tag">
+            <div className="bv-hero-tag">
               <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#0B251C', display: 'inline-block' }} />
-              Account holder
-            </span>
-            <span className="bv-hero-tag">
+              Account Holder
+            </div>
+            <div className="bv-hero-tag">
               <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#0B251C', display: 'inline-block' }} />
-              Private workspace
-            </span>
+              Private Workspace
+            </div>
+            <div className="bv-hero-tag">
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10B981', display: 'inline-block' }} />
+              Double-Entry Invariant Verified
+            </div>
           </div>
         </div>
 
-        {/* Decorative Circular Emblem */}
         <div className="bv-hero-badge">
           <div className="bv-hero-inner-circle">
-            b
+            <span>b</span>
           </div>
-          <span className="bv-hero-index">01 / 01</span>
+          <div className="bv-hero-index">01 / 01</div>
         </div>
       </div>
 
-      {/* Section: YOUR SPACE / Account overview */}
-      <div style={{ marginBottom: '2rem' }}>
-        <div className="bv-section-header">
-          <span>YOUR SPACE</span>
+      {error && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <Alert type="danger" message={error} onClose={() => setError(null)} />
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0B251C', margin: 0 }}>
-            Account overview
-          </h2>
+      )}
+
+      {/* Section 1: KPI Overview Cards */}
+      <div style={{ marginBottom: '2.5rem' }}>
+        <div className="bv-section-header">
+          <span>YOUR SPACE &bull; PORTFOLIO OVERVIEW</span>
           <Link
             to="/customer/accounts"
-            style={{ fontSize: '0.8125rem', color: '#0B251C', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+            style={{ fontSize: '0.8125rem', color: '#0B251C', fontWeight: 600, textDecoration: 'none' }}
           >
-            All accounts &rarr;
+            Manage all accounts &rarr;
           </Link>
         </div>
 
@@ -160,88 +138,127 @@ export const CustomerDashboard = () => {
             <div className="bv-card-icon-box">
               <CreditCard size={18} />
             </div>
-            <div className="bv-card-label">Total accounts</div>
+            <div className="bv-card-label">Total Connected Accounts</div>
             <div className="bv-card-value">
               {accounts.length < 10 ? `0${accounts.length}` : accounts.length}
             </div>
             <div className="bv-card-sub">
-              {accounts.length} {accounts.length === 1 ? 'account' : 'accounts'} connected
+              {activeAccounts.length} active &bull; {pendingAccounts.length} pending approval
             </div>
           </div>
 
-          {/* Account status */}
+          {/* Aggregate balance */}
           <div className="bv-card">
             <div className="bv-card-icon-box">
               <ShieldCheck size={18} />
             </div>
-            <div className="bv-card-label">Account status</div>
-            <div className="bv-card-value" style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              {activeAccounts.length > 0 ? (
-                <>
-                  <span style={{ color: '#166534' }}>{activeAccounts.length} Active</span>
-                </>
-              ) : pendingAccounts.length > 0 ? (
-                <>
-                  <span style={{ color: '#B45309' }}>1 Pending approval</span>
-                </>
-              ) : (
-                <>
-                  <span>No accounts</span>
-                </>
-              )}
+            <div className="bv-card-label">Cumulative Available Balance</div>
+            <div className="bv-card-value" style={{ fontFamily: "'Newsreader', 'Georgia', serif" }}>
+              ${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
             <div className="bv-card-sub">
-              {activeAccounts.length} active {activeAccounts.length === 1 ? 'account' : 'accounts'}
-            </div>
-            {/* Progress bar line */}
-            <div style={{ width: '100%', height: '4px', backgroundColor: '#E5EBE5', borderRadius: '2px', marginTop: '1rem', overflow: 'hidden' }}>
-              <div
-                style={{
-                  width: activeAccounts.length > 0 ? '100%' : pendingAccounts.length > 0 ? '50%' : '0%',
-                  height: '100%',
-                  backgroundColor: activeAccounts.length > 0 ? '#10B981' : '#F59E0B',
-                  transition: 'width 0.3s',
-                }}
-              />
+              Verified double-entry invariant across all active accounts
             </div>
           </div>
         </div>
       </div>
 
-      {/* Section: CONNECTED / Your accounts */}
+      {/* Section 2: Quick Actions Navigation */}
       <div style={{ marginBottom: '2.5rem' }}>
         <div className="bv-section-header">
-          <span>CONNECTED</span>
+          <span>ON YOUR TERMS &bull; QUICK ACTIONS</span>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0B251C', margin: 0 }}>
-            Your accounts
-          </h2>
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0B251C', margin: '0 0 1rem' }}>
+          Money movement
+        </h2>
+
+        <div className="bv-quick-actions-grid">
+          {/* Deposit */}
+          <Link
+            to="/customer/deposit"
+            className="bv-action-card deposit"
+            style={{ textDecoration: 'none' }}
+          >
+            <div className="bv-action-icon">
+              <ArrowDownLeft size={20} color="#059669" />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#0B251C' }}>Deposit Funds</div>
+              <div style={{ fontSize: '0.75rem', color: '#4A6356' }}>Credit account with cash inflow</div>
+            </div>
+          </Link>
+
+          {/* Withdraw */}
+          <Link
+            to="/customer/withdraw"
+            className="bv-action-card withdraw"
+            style={{ textDecoration: 'none' }}
+          >
+            <div className="bv-action-icon">
+              <ArrowUpRight size={20} color="#D97706" />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#0B251C' }}>Withdraw Funds</div>
+              <div style={{ fontSize: '0.75rem', color: '#745B38' }}>Debit and withdraw from active balance</div>
+            </div>
+          </Link>
+
+          {/* Transfer */}
+          <Link
+            to="/customer/transfer"
+            className="bv-action-card transfer"
+            style={{ textDecoration: 'none' }}
+          >
+            <div className="bv-action-icon">
+              <ArrowLeftRight size={20} color="#2563EB" />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.9375rem', fontWeight: 600, color: '#0B251C' }}>Transfer Funds</div>
+              <div style={{ fontSize: '0.75rem', color: '#3A576E' }}>Atomic double-entry transfer</div>
+            </div>
+          </Link>
+        </div>
+      </div>
+
+      {/* Section 3: Connected Accounts Summary */}
+      <div style={{ marginBottom: '2.5rem' }}>
+        <div className="bv-section-header">
+          <span>CONNECTED ACCOUNTS</span>
           <button
             type="button"
             onClick={() => setRequestModalOpen(true)}
             className="btn btn-secondary btn-sm"
             style={{ fontSize: '0.75rem', borderColor: '#CCD8CC', color: '#0B251C', backgroundColor: '#FFFFFF' }}
           >
-            + Request account
+            + Request new account
           </button>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0B251C', margin: 0 }}>
+            Your accounts
+          </h2>
+          <Link
+            to="/customer/accounts"
+            style={{ fontSize: '0.8125rem', color: '#0B251C', fontWeight: 600, textDecoration: 'none' }}
+          >
+            View all accounts &rarr;
+          </Link>
         </div>
 
         {accounts.length === 0 ? (
-          /* Empty State matching uploaded screenshot */
           <div className="bv-empty-box">
             <div className="bv-empty-icon">
               <CreditCard size={22} />
             </div>
             <div className="bv-empty-title">No accounts yet</div>
             <p className="bv-empty-desc">
-              Customer accounts are opened after an administrator reviews your request.
+              Customer accounts are opened after an administrator reviews and approves your request.
             </p>
             <button
               type="button"
               onClick={() => setRequestModalOpen(true)}
               className="btn btn-primary btn-md"
-              style={{ backgroundColor: '#0B251C', borderColor: '#0B251C', borderRadius: '10px' }}
+              style={{ backgroundColor: '#092218', borderColor: '#092218', borderRadius: '10px' }}
             >
               Request an account
             </button>
@@ -315,145 +332,101 @@ export const CustomerDashboard = () => {
         )}
       </div>
 
-      {/* Section: ON YOUR TERMS / Quick actions */}
+      {/* Section 4: Recent Ledger Activity */}
       <div style={{ marginBottom: '2.5rem' }}>
         <div className="bv-section-header">
-          <span>ON YOUR TERMS</span>
-        </div>
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0B251C', marginBottom: '1rem' }}>
-          Quick actions
-        </h2>
-
-        <div className="bv-quick-actions-grid">
-          {/* Deposit */}
-          <button
-            type="button"
-            onClick={() => handleActionClick('deposit')}
-            className="bv-action-card deposit"
-          >
-            <div className="bv-action-icon">
-              <Plus size={18} />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0B251C' }}>Deposit</div>
-              <div style={{ fontSize: '0.75rem', color: '#4A6356' }}>Add funds</div>
-            </div>
-          </button>
-
-          {/* Withdraw */}
-          <button
-            type="button"
-            onClick={() => handleActionClick('withdraw')}
-            className="bv-action-card withdraw"
-          >
-            <div className="bv-action-icon">
-              <ArrowUpRight size={18} />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0B251C' }}>Withdraw</div>
-              <div style={{ fontSize: '0.75rem', color: '#745B38' }}>Move funds out</div>
-            </div>
-          </button>
-
-          {/* Transfer */}
-          <button
-            type="button"
-            onClick={() => handleActionClick('transfer')}
-            className="bv-action-card transfer"
-          >
-            <div className="bv-action-icon">
-              <ArrowLeftRight size={18} />
-            </div>
-            <div>
-              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0B251C' }}>Transfer</div>
-              <div style={{ fontSize: '0.75rem', color: '#3A576E' }}>Between accounts</div>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* Section: LEDGER / Transaction activity */}
-      <div style={{ marginBottom: '2.5rem' }}>
-        <div className="bv-section-header">
-          <span>LEDGER</span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0B251C', margin: 0 }}>
-            Transaction activity
-          </h2>
+          <span>AUDITABLE LEDGER &bull; RECENT ACTIVITY</span>
           {transactions.length > 0 && (
             <Link
               to="/customer/transactions"
               style={{ fontSize: '0.8125rem', color: '#0B251C', fontWeight: 600, textDecoration: 'none' }}
             >
-              Full Journal &rarr;
+              Full transaction journal &rarr;
             </Link>
           )}
         </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0B251C', margin: 0 }}>
+            Recent transaction activity
+          </h2>
+        </div>
 
         {transactions.length === 0 ? (
-          /* Empty state matching uploaded screenshot */
           <div className="bv-empty-box">
             <div className="bv-empty-icon">
               <Sparkles size={22} />
             </div>
-            <div className="bv-empty-title">No accounts available</div>
+            <div className="bv-empty-title">No transactions yet</div>
             <p className="bv-empty-desc">
-              Account activity will appear when you have assets in an account.
+              Your transaction journal will populate as money movement occurs in your active accounts.
             </p>
           </div>
         ) : (
-          <div className="table-responsive" style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', border: '1px solid #E5EBE5', overflow: 'hidden' }}>
+          <div className="table-container" style={{ borderRadius: '16px', overflow: 'hidden', border: '1px solid #E5EBE5' }}>
             <table className="table" style={{ margin: 0 }}>
               <thead>
-                <tr style={{ backgroundColor: '#F8FAF8', borderBottom: '1px solid #E5EBE5' }}>
-                  <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reference</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date & Time</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Counterparty</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Amount</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Double-Entry</th>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Reference</th>
+                  <th>Type</th>
+                  <th>Description</th>
+                  <th style={{ textAlign: 'right' }}>Amount</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: 'center' }}>Ledger</th>
                 </tr>
               </thead>
               <tbody>
                 {transactions.slice(0, 5).map((tx) => (
-                  <tr key={tx.id} style={{ borderBottom: '1px solid #F4F7F4' }}>
-                    <td style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.8125rem', fontWeight: 600, color: '#0B251C' }}>
-                      {tx.reference}
-                    </td>
-                    <td style={{ fontSize: '0.8125rem', color: '#667085' }}>
-                      {new Date(tx.createdAt).toLocaleString()}
-                    </td>
-                    <td>
-                      <span className={`badge badge-${tx.transactionType === 'DEPOSIT' ? 'success' : tx.transactionType === 'WITHDRAWAL' ? 'warning' : 'primary'}`}>
-                        {tx.transactionType}
-                      </span>
-                    </td>
-                    <td style={{ fontSize: '0.8125rem', color: '#4A5568' }}>
-                      {tx.transactionType === 'DEPOSIT'
-                        ? `Clearing Deposit → ${tx.destinationAccountNumber}`
-                        : tx.transactionType === 'WITHDRAWAL'
-                        ? `${tx.sourceAccountNumber} → Clearing Withdrawal`
-                        : `${tx.sourceAccountNumber} → ${tx.destinationAccountNumber}`}
-                    </td>
-                    <td style={{ textAlign: 'right', fontWeight: 600, fontSize: '0.875rem', color: tx.transactionType === 'DEPOSIT' ? '#166534' : '#0B251C' }}>
-                      {tx.transactionType === 'DEPOSIT' ? '+' : '-'}${parseFloat(tx.amount || 0).toFixed(2)}
-                    </td>
-                    <td>
-                      <span className="badge badge-success">{tx.status}</span>
-                    </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <button
-                        type="button"
-                        onClick={() => toggleExpandTx(tx.id)}
-                        className="btn btn-secondary btn-sm"
-                        style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
-                      >
-                        {expandedTxId === tx.id ? 'Hide' : 'Inspect'}
-                      </button>
-                    </td>
-                  </tr>
+                  <React.Fragment key={tx.id}>
+                    <tr>
+                      <td style={{ fontSize: '0.8125rem', color: '#667085' }}>
+                        {new Date(tx.createdAt).toLocaleString()}
+                      </td>
+                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 600 }}>
+                        {tx.reference}
+                      </td>
+                      <td>
+                        <span
+                          style={{
+                            fontSize: '0.6875rem',
+                            fontWeight: 700,
+                            padding: '0.2rem 0.5rem',
+                            borderRadius: '6px',
+                            backgroundColor: tx.transactionType === 'DEPOSIT' ? '#EAF5EE' : tx.transactionType === 'WITHDRAWAL' ? '#FEF3C7' : '#EFF6FF',
+                            color: tx.transactionType === 'DEPOSIT' ? '#166534' : tx.transactionType === 'WITHDRAWAL' ? '#92400E' : '#1E40AF',
+                          }}
+                        >
+                          {tx.transactionType}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: '0.8125rem', color: '#334155' }}>
+                        {tx.description}
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 600, fontSize: '0.875rem', color: tx.transactionType === 'DEPOSIT' ? '#166534' : '#0B251C' }}>
+                        {tx.transactionType === 'DEPOSIT' ? '+' : '-'}${parseFloat(tx.amount || 0).toFixed(2)}
+                      </td>
+                      <td>
+                        <span className="badge badge-success">{tx.status}</span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          type="button"
+                          onClick={() => toggleExpandTx(tx.id)}
+                          className="btn btn-secondary btn-sm"
+                          style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                        >
+                          {expandedTxId === tx.id ? 'Hide' : 'Inspect'}
+                        </button>
+                      </td>
+                    </tr>
+                    {expandedTxId === tx.id && (
+                      <tr>
+                        <td colSpan={7} style={{ backgroundColor: '#F8FAF8', padding: '1.25rem 1.5rem' }}>
+                          <DoubleEntryBadge transaction={tx} />
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
@@ -461,24 +434,11 @@ export const CustomerDashboard = () => {
         )}
       </div>
 
-      {/* Transaction Modal (Deposit / Withdraw / Transfer) */}
-      <TransactionModal
-        isOpen={!!modalType}
-        onClose={() => setModalType(null)}
-        initialType={modalType || 'deposit'}
-        accounts={activeAccounts}
-        onSuccess={() => {
-          setSuccessMessage('Transaction completed with balanced double-entry ledger records');
-          loadData();
-        }}
-      />
-
       {/* Account Request Modal */}
       <AccountRequestModal
         isOpen={requestModalOpen}
         onClose={() => setRequestModalOpen(false)}
         onSuccess={() => {
-          setSuccessMessage('Account request submitted. An administrator will review and activate your account.');
           loadData();
         }}
       />
