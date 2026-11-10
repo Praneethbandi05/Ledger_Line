@@ -84,7 +84,7 @@ export const CustomerStatementPage = () => {
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
       {/* Page Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
+      <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <div className="bv-section-header">
             <span>FINANCIAL RECORDS &bull; AUDIT STATEMENTS</span>
@@ -120,13 +120,14 @@ export const CustomerStatementPage = () => {
       </div>
 
       {error && (
-        <div style={{ marginBottom: '1.5rem' }}>
+        <div className="no-print" style={{ marginBottom: '1.5rem' }}>
           <Alert type="danger" message={error} onClose={() => setError(null)} />
         </div>
       )}
 
       {/* Control Filter Bar */}
       <div
+        className="no-print"
         style={{
           backgroundColor: '#FFFFFF',
           borderRadius: '16px',
@@ -197,6 +198,7 @@ export const CustomerStatementPage = () => {
       {statement && (
         <div
           id="printable-statement"
+          className="bv-statement-paper"
           style={{
             backgroundColor: '#FFFFFF',
             borderRadius: '16px',
