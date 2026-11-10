@@ -182,7 +182,7 @@ export default function App() {
           <Route
             path="/customer/profile"
             element={
-              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN']} breadcrumb="Settings / Profile & Security">
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN', 'AUDITOR']} breadcrumb="Settings / Profile & Security">
                 <CustomerProfilePage />
               </ProtectedLayout>
             }
