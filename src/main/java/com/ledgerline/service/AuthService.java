@@ -21,8 +21,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -129,11 +131,21 @@ public class AuthService {
                     "AUTH", userDetails.getUsername(), "SUCCESS", "User authenticated successfully");
 
             return new AuthResponse(token, jwtTokenProvider.getExpirationMs(), profile);
+        } catch (DisabledException e) {
+            log.warn("Login attempt for disabled account: {}", request.getUsername());
+            auditService.recordSecurityEvent(request.getUsername().trim(), "ANONYMOUS", "LOGIN_DISABLED",
+                    "AUTH", request.getUsername().trim(), "FAILURE", "Account is deactivated or disabled");
+            throw new LedgerLineException("Account is deactivated. Please contact an administrator.", HttpStatus.FORBIDDEN);
         } catch (BadCredentialsException e) {
             log.warn("Failed login attempt for username: {}", request.getUsername());
             auditService.recordSecurityEvent(request.getUsername().trim(), "ANONYMOUS", "LOGIN_FAILED",
                     "AUTH", request.getUsername().trim(), "FAILURE", "Invalid credentials provided");
             throw new LedgerLineException("Invalid username or password", HttpStatus.UNAUTHORIZED);
+        } catch (AuthenticationException e) {
+            log.warn("Authentication failed for username {}: {}", request.getUsername(), e.getMessage());
+            auditService.recordSecurityEvent(request.getUsername().trim(), "ANONYMOUS", "LOGIN_FAILED",
+                    "AUTH", request.getUsername().trim(), "FAILURE", e.getMessage());
+            throw new LedgerLineException("Authentication failed: " + e.getMessage(), HttpStatus.UNAUTHORIZED);
         }
     }
 
