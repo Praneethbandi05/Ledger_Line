@@ -75,7 +75,7 @@ export const CustomerAccountDetails = () => {
     try {
       setLoading(true);
       const newAcc = await accountService.createAccount(newAccountType, 'USD');
-      setSuccessMessage(`New ${newAccountType} account created successfully: ${newAcc.accountNumber}`);
+      setSuccessMessage(`New ${newAccountType} account request submitted: ${newAcc.accountNumber}. Awaiting administrator approval.`);
       await loadAccounts();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create new account');

@@ -20,4 +20,14 @@ export const accountService = {
     const response = await api.post('/accounts', { accountType, currency });
     return response.data.data;
   },
+
+  approveAccount: async (accountId) => {
+    const response = await api.put(`/accounts/${accountId}/approve`);
+    return response.data.data;
+  },
+
+  rejectAccount: async (accountId) => {
+    const response = await api.put(`/accounts/${accountId}/reject`);
+    return response.data.data;
+  },
 };

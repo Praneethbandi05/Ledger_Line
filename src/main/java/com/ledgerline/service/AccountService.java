@@ -4,6 +4,7 @@ import com.ledgerline.dto.account.AccountResponse;
 import com.ledgerline.dto.account.CreateAccountRequest;
 import com.ledgerline.entity.Account;
 import com.ledgerline.entity.User;
+import com.ledgerline.enums.AccountStatus;
 import com.ledgerline.enums.AccountType;
 import com.ledgerline.exception.ResourceNotFoundException;
 import com.ledgerline.repository.AccountRepository;
@@ -83,11 +84,40 @@ public class AccountService {
                 BigDecimal.ZERO
         );
 
-        Account saved = accountRepository.save(account);
-        auditService.recordEvent(currentUser.getUsername(), currentUser.getRole().name(), "ACCOUNT_CREATE",
-                "ACCOUNT", saved.getAccountNumber(), "SUCCESS",
-                "Account created of type " + saved.getAccountType() + " with currency " + saved.getCurrency());
+        // In BalanceVault onboarding workflow:
+        // Customer accounts require Admin review and permission before becoming ACTIVE.
+        // Admins can provision ACTIVE accounts immediately.
+        boolean isAdmin = securityContextHelper.isAdmin();
+        account.setStatus(isAdmin ? AccountStatus.ACTIVE : AccountStatus.PENDING_APPROVAL);
 
+        Account saved = accountRepository.save(account);
+        auditService.recordEvent(currentUser.getUsername(), currentUser.getRole().name(),
+                isAdmin ? "ACCOUNT_CREATE" : "ACCOUNT_REQUEST",
+                "ACCOUNT", saved.getAccountNumber(), "SUCCESS",
+                "Account " + (isAdmin ? "created" : "requested awaiting approval") + " of type " + saved.getAccountType());
+
+        return new AccountResponse(saved);
+    }
+
+    @Transactional
+    public AccountResponse approveAccount(Long accountId) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new ResourceNotFoundException("Account not found with ID: " + accountId));
+        account.setStatus(AccountStatus.ACTIVE);
+        Account saved = accountRepository.save(account);
+        auditService.recordEvent(securityContextHelper.getCurrentUsername(), "ADMIN", "ACCOUNT_APPROVE",
+                "ACCOUNT", saved.getAccountNumber(), "SUCCESS", "Account approved and activated by administrator");
+        return new AccountResponse(saved);
+    }
+
+    @Transactional
+    public AccountResponse rejectAccount(Long accountId) {
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new ResourceNotFoundException("Account not found with ID: " + accountId));
+        account.setStatus(AccountStatus.CLOSED);
+        Account saved = accountRepository.save(account);
+        auditService.recordEvent(securityContextHelper.getCurrentUsername(), "ADMIN", "ACCOUNT_REJECT",
+                "ACCOUNT", saved.getAccountNumber(), "SUCCESS", "Account request rejected by administrator");
         return new AccountResponse(saved);
     }
 

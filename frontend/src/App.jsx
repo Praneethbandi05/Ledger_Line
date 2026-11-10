@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { Navbar } from './components/Navbar';
+import { Layout } from './components/Layout';
 import { LoginPage } from './pages/LoginPage';
 import { CustomerDashboard } from './pages/CustomerDashboard';
 import { CustomerAccountDetails } from './pages/CustomerAccountDetails';
@@ -21,12 +21,12 @@ import { AuditorLedgerExplorer } from './pages/AuditorLedgerExplorer';
 import { AuditorAuditLogViewer } from './pages/AuditorAuditLogViewer';
 
 // Protected layout wrapper
-const ProtectedLayout = ({ children, allowedRoles }) => {
+const ProtectedLayout = ({ children, allowedRoles, breadcrumb }) => {
   const { isAuthenticated, loading, role } = useAuth();
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--bg-main)' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#F8FAF8' }}>
         <div className="spinner" style={{ width: '40px', height: '40px' }} />
       </div>
     );
@@ -41,12 +41,9 @@ const ProtectedLayout = ({ children, allowedRoles }) => {
   }
 
   return (
-    <div className="app-container">
-      <Navbar />
-      <main className="main-content">
-        {children}
-      </main>
-    </div>
+    <Layout breadcrumb={breadcrumb}>
+      {children}
+    </Layout>
   );
 };
 

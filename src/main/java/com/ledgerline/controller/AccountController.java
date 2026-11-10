@@ -48,7 +48,21 @@ public class AccountController {
     public ResponseEntity<ApiResponse<AccountResponse>> createAccount(@Valid @RequestBody CreateAccountRequest request) {
         AccountResponse account = accountService.createAccount(request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Account created successfully", account));
+                .body(ApiResponse.success("Account request processed successfully", account));
+    }
+
+    @PutMapping("/{accountId}/approve")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<AccountResponse>> approveAccount(@PathVariable Long accountId) {
+        AccountResponse account = accountService.approveAccount(accountId);
+        return ResponseEntity.ok(ApiResponse.success("Account approved and activated successfully", account));
+    }
+
+    @PutMapping("/{accountId}/reject")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<ApiResponse<AccountResponse>> rejectAccount(@PathVariable Long accountId) {
+        AccountResponse account = accountService.rejectAccount(accountId);
+        return ResponseEntity.ok(ApiResponse.success("Account request rejected", account));
     }
 
     @PostMapping("/{accountId}/financial-operation-check")

@@ -1,10 +1,7 @@
 package com.ledgerline.controller;
 
 import com.ledgerline.dto.ApiResponse;
-import com.ledgerline.dto.auth.AuthResponse;
-import com.ledgerline.dto.auth.LoginRequest;
-import com.ledgerline.dto.auth.RegisterRequest;
-import com.ledgerline.dto.auth.UserProfileResponse;
+import com.ledgerline.dto.auth.*;
 import com.ledgerline.service.AuthService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -45,5 +42,17 @@ public class AuthController {
     public ResponseEntity<ApiResponse<UserProfileResponse>> getCurrentUser() {
         UserProfileResponse profile = authService.getCurrentUserProfile();
         return ResponseEntity.ok(ApiResponse.success("User profile retrieved", profile));
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<ApiResponse<Void>> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        authService.changePassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Password changed successfully", null));
+    }
+
+    @PutMapping("/profile")
+    public ResponseEntity<ApiResponse<UserProfileResponse>> updateProfile(@Valid @RequestBody UpdateProfileRequest request) {
+        UserProfileResponse updated = authService.updateProfile(request);
+        return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", updated));
     }
 }

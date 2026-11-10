@@ -48,6 +48,19 @@ export const AuthProvider = ({ children }) => {
     return userProfile;
   };
 
+  const changePassword = async (currentPassword, newPassword) => {
+    const response = await api.post('/auth/change-password', { currentPassword, newPassword });
+    return response.data;
+  };
+
+  const updateProfile = async (fullName, email) => {
+    const response = await api.put('/auth/profile', { fullName, email });
+    const updatedUser = response.data.data;
+    localStorage.setItem('ledgerline_user', JSON.stringify(updatedUser));
+    setUser(updatedUser);
+    return updatedUser;
+  };
+
   const logout = async () => {
     try {
       if (token) {
@@ -73,6 +86,8 @@ export const AuthProvider = ({ children }) => {
         role: user?.role,
         login,
         register,
+        changePassword,
+        updateProfile,
         logout,
       }}
     >

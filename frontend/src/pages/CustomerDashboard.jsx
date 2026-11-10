@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { accountService } from '../services/accountService';
 import { transactionService } from '../services/transactionService';
 import { TransactionModal } from '../components/TransactionModal';
+import { AccountRequestModal } from '../components/AccountRequestModal';
 import { Alert } from '../components/Alert';
 import { DoubleEntryBadge } from '../components/DoubleEntryBadge';
 import {
@@ -16,8 +17,13 @@ import {
   Clock,
   Printer,
   ShieldCheck,
-  ChevronDown,
-  ChevronUp,
+  ChevronRight,
+  CheckCircle2,
+  AlertCircle,
+  Building2,
+  Sparkles,
+  CreditCard,
+  Plus
 } from 'lucide-react';
 
 export const CustomerDashboard = () => {
@@ -29,15 +35,19 @@ export const CustomerDashboard = () => {
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState(null);
 
-  // Active view: 'dashboard' | 'statement'
-  const [activeTab, setActiveTab] = useState('dashboard');
-
   // Modal control
   const [modalType, setModalType] = useState(null); // 'deposit' | 'withdraw' | 'transfer'
+  const [requestModalOpen, setRequestModalOpen] = useState(false);
   const [expandedTxId, setExpandedTxId] = useState(null);
 
   useEffect(() => {
     loadData();
+
+    const handleAccountRequestSubmitted = () => {
+      loadData();
+    };
+    window.addEventListener('account-request-submitted', handleAccountRequestSubmitted);
+    return () => window.removeEventListener('account-request-submitted', handleAccountRequestSubmitted);
   }, []);
 
   const loadData = async () => {
@@ -57,23 +67,36 @@ export const CustomerDashboard = () => {
     }
   };
 
-  const handleOpenNewAccount = async () => {
-    try {
-      setLoading(true);
-      await accountService.createAccount('CHECKING', 'USD');
-      setSuccessMessage('New checking account created successfully');
-      await loadData();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create new account');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const activeAccounts = accounts.filter((a) => a.status === 'ACTIVE');
+  const pendingAccounts = accounts.filter((a) => a.status === 'PENDING_APPROVAL');
 
-  const totalBalance = accounts.reduce(
+  const totalBalance = activeAccounts.reduce(
     (sum, acc) => sum + parseFloat(acc.balance || 0),
     0
   );
+
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour >= 4 && hour < 12) return 'Good morning';
+    if (hour >= 12 && hour < 17) return 'Good afternoon';
+    if (hour >= 17 && hour < 22) return 'Good evening';
+    return 'Good to see you';
+  };
+
+  const displayName = user?.fullName || user?.username || 'Account holder';
+
+  const handleActionClick = (type) => {
+    if (activeAccounts.length === 0) {
+      if (pendingAccounts.length > 0) {
+        setError('Your account request is currently awaiting administrator approval. Financial transactions will unlock once approved.');
+      } else {
+        setError('You have no active accounts yet. Please request an account to begin moving funds.');
+        setRequestModalOpen(true);
+      }
+      return;
+    }
+    setModalType(type);
+  };
 
   const toggleExpandTx = (id) => {
     setExpandedTxId(expandedTxId === id ? null : id);
@@ -81,454 +104,381 @@ export const CustomerDashboard = () => {
 
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '1.5rem',
-          flexWrap: 'wrap',
-          gap: '1rem',
-        }}
-      >
+      {error && <Alert type="error" message={error} />}
+      {successMessage && <Alert type="success" message={successMessage} />}
+
+      {/* Hero Greeting Banner */}
+      <div className="bv-hero-banner">
         <div>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0F172A' }}>
-            Welcome back, {user?.fullName || user?.username}
-          </h2>
-          <p style={{ color: '#64748B', fontSize: '0.875rem' }}>
-            Customer Financial Portfolio & Verified Double-Entry Ledger
+          <h1 className="bv-hero-title">
+            {getGreeting()}, <span className="bv-hero-italic">{displayName}</span>
+          </h1>
+          <p className="bv-hero-subtitle">
+            Everything in its place. Here's your account overview.
           </p>
+          <div className="bv-hero-tags">
+            <span className="bv-hero-tag">
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#0B251C', display: 'inline-block' }} />
+              Account holder
+            </span>
+            <span className="bv-hero-tag">
+              <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#0B251C', display: 'inline-block' }} />
+              Private workspace
+            </span>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
-          <button
-            onClick={() => setModalType('deposit')}
-            className="btn btn-primary"
-            disabled={accounts.length === 0}
-          >
-            <ArrowDownLeft size={16} />
-            <span>Deposit</span>
-          </button>
-          <button
-            onClick={() => setModalType('withdraw')}
-            className="btn btn-secondary"
-            disabled={accounts.length === 0}
-          >
-            <ArrowUpRight size={16} />
-            <span>Withdraw</span>
-          </button>
-          <button
-            onClick={() => setModalType('transfer')}
-            className="btn btn-secondary"
-            disabled={accounts.length === 0}
-          >
-            <ArrowLeftRight size={16} />
-            <span>Transfer</span>
-          </button>
-          <button
-            onClick={handleOpenNewAccount}
-            className="btn btn-secondary"
-            title="Open an additional checking or savings account"
-          >
-            <PlusCircle size={16} />
-            <span>New Account</span>
-          </button>
+        {/* Decorative Circular Emblem */}
+        <div className="bv-hero-badge">
+          <div className="bv-hero-inner-circle">
+            b
+          </div>
+          <span className="bv-hero-index">01 / 01</span>
         </div>
       </div>
 
-      {successMessage && (
-        <Alert
-          type="success"
-          message={successMessage}
-          onClose={() => setSuccessMessage(null)}
-        />
-      )}
-      {error && <Alert type="danger" message={error} />}
+      {/* Section: YOUR SPACE / Account overview */}
+      <div style={{ marginBottom: '2rem' }}>
+        <div className="bv-section-header">
+          <span>YOUR SPACE</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0B251C', margin: 0 }}>
+            Account overview
+          </h2>
+          <Link
+            to="/customer/accounts"
+            style={{ fontSize: '0.8125rem', color: '#0B251C', fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+          >
+            All accounts &rarr;
+          </Link>
+        </div>
 
-      {/* Tabs */}
-      <div className="tabs">
-        <button
-          className={`tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
-          onClick={() => setActiveTab('dashboard')}
-        >
-          Account Overview & Ledger
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'statement' ? 'active' : ''}`}
-          onClick={() => setActiveTab('statement')}
-        >
-          Official Statement
-        </button>
-      </div>
-
-      {activeTab === 'dashboard' ? (
-        <>
-          {/* Account Balance Cards */}
-          <div className="grid-3" style={{ marginBottom: '2rem' }}>
-            <div className="stat-card accent">
-              <div className="stat-label">Total Liquid Net Worth</div>
-              <div className="stat-value">${totalBalance.toFixed(2)}</div>
-              <div className="stat-subtext">Across {accounts.length} active account(s)</div>
+        <div className="bv-card-grid-2">
+          {/* Total accounts */}
+          <div className="bv-card">
+            <div className="bv-card-icon-box">
+              <CreditCard size={18} />
             </div>
+            <div className="bv-card-label">Total accounts</div>
+            <div className="bv-card-value">
+              {accounts.length < 10 ? `0${accounts.length}` : accounts.length}
+            </div>
+            <div className="bv-card-sub">
+              {accounts.length} {accounts.length === 1 ? 'account' : 'accounts'} connected
+            </div>
+          </div>
 
+          {/* Account status */}
+          <div className="bv-card">
+            <div className="bv-card-icon-box">
+              <ShieldCheck size={18} />
+            </div>
+            <div className="bv-card-label">Account status</div>
+            <div className="bv-card-value" style={{ fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              {activeAccounts.length > 0 ? (
+                <>
+                  <span style={{ color: '#166534' }}>{activeAccounts.length} Active</span>
+                </>
+              ) : pendingAccounts.length > 0 ? (
+                <>
+                  <span style={{ color: '#B45309' }}>1 Pending approval</span>
+                </>
+              ) : (
+                <>
+                  <span>No accounts</span>
+                </>
+              )}
+            </div>
+            <div className="bv-card-sub">
+              {activeAccounts.length} active {activeAccounts.length === 1 ? 'account' : 'accounts'}
+            </div>
+            {/* Progress bar line */}
+            <div style={{ width: '100%', height: '4px', backgroundColor: '#E5EBE5', borderRadius: '2px', marginTop: '1rem', overflow: 'hidden' }}>
+              <div
+                style={{
+                  width: activeAccounts.length > 0 ? '100%' : pendingAccounts.length > 0 ? '50%' : '0%',
+                  height: '100%',
+                  backgroundColor: activeAccounts.length > 0 ? '#10B981' : '#F59E0B',
+                  transition: 'width 0.3s',
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Section: CONNECTED / Your accounts */}
+      <div style={{ marginBottom: '2.5rem' }}>
+        <div className="bv-section-header">
+          <span>CONNECTED</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0B251C', margin: 0 }}>
+            Your accounts
+          </h2>
+          <button
+            type="button"
+            onClick={() => setRequestModalOpen(true)}
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: '0.75rem', borderColor: '#CCD8CC', color: '#0B251C', backgroundColor: '#FFFFFF' }}
+          >
+            + Request account
+          </button>
+        </div>
+
+        {accounts.length === 0 ? (
+          /* Empty State matching uploaded screenshot */
+          <div className="bv-empty-box">
+            <div className="bv-empty-icon">
+              <CreditCard size={22} />
+            </div>
+            <div className="bv-empty-title">No accounts yet</div>
+            <p className="bv-empty-desc">
+              Customer accounts are opened after an administrator reviews your request.
+            </p>
+            <button
+              type="button"
+              onClick={() => setRequestModalOpen(true)}
+              className="btn btn-primary btn-md"
+              style={{ backgroundColor: '#0B251C', borderColor: '#0B251C', borderRadius: '10px' }}
+            >
+              Request an account
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1.25rem' }}>
             {accounts.map((acc) => (
-              <Link key={acc.id} to={`/customer/accounts/${acc.id}`} className="stat-card" style={{ textDecoration: 'none', display: 'block', transition: 'transform 0.2s' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div className="stat-label">
-                    {acc.accountType} Account
+              <div
+                key={acc.id}
+                className="bv-card"
+                style={{
+                  borderLeft: acc.status === 'ACTIVE' ? '4px solid #10B981' : acc.status === 'PENDING_APPROVAL' ? '4px solid #F59E0B' : '4px solid #94A3B8',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                  <div>
+                    <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#688073', letterSpacing: '0.05em' }}>
+                      {acc.accountType} &bull; {acc.currency}
+                    </span>
+                    <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#0B251C', margin: '0.125rem 0' }}>
+                      {acc.accountNumber}
+                    </h3>
                   </div>
                   <span
                     style={{
                       fontSize: '0.6875rem',
                       fontWeight: 700,
-                      color: acc.status === 'ACTIVE' ? '#34D399' : '#F87171',
-                      textTransform: 'uppercase',
+                      padding: '0.2rem 0.5rem',
+                      borderRadius: '9999px',
+                      backgroundColor: acc.status === 'ACTIVE' ? '#EAF5EE' : acc.status === 'PENDING_APPROVAL' ? '#FEF3C7' : '#F1F5F9',
+                      color: acc.status === 'ACTIVE' ? '#166534' : acc.status === 'PENDING_APPROVAL' ? '#92400E' : '#475569',
+                      border: `1px solid ${acc.status === 'ACTIVE' ? '#C4E5CE' : acc.status === 'PENDING_APPROVAL' ? '#FDE68A' : '#E2E8F0'}`,
                     }}
                   >
-                    {acc.status}
+                    {acc.status === 'PENDING_APPROVAL' ? 'PENDING APPROVAL' : acc.status}
                   </span>
                 </div>
-                <div className="stat-value">${parseFloat(acc.balance).toFixed(2)}</div>
-                <div className="stat-subtext" style={{ fontFamily: 'var(--font-mono)' }}>
-                  {acc.accountNumber} • {acc.currency}
+
+                <div style={{ margin: '1rem 0' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#667085', marginBottom: '0.25rem' }}>
+                    Available Balance
+                  </div>
+                  <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0B251C', fontFamily: "'Newsreader', 'Georgia', serif" }}>
+                    ${parseFloat(acc.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </div>
                 </div>
-              </Link>
+
+                {acc.status === 'PENDING_APPROVAL' ? (
+                  <div style={{ fontSize: '0.75rem', color: '#92400E', backgroundColor: '#FFFBEB', padding: '0.5rem 0.75rem', borderRadius: '8px' }}>
+                    ⏳ Awaiting administrator review. Transactions unlock once approved.
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.75rem', borderTop: '1px solid #F0F4F0' }}>
+                    <Link
+                      to={`/customer/accounts/${acc.id}`}
+                      style={{ fontSize: '0.8125rem', color: '#0B251C', fontWeight: 600, textDecoration: 'none' }}
+                    >
+                      View Details &rarr;
+                    </Link>
+                    <Link
+                      to="/customer/statements"
+                      style={{ fontSize: '0.75rem', color: '#667085', textDecoration: 'none' }}
+                    >
+                      Official Statement
+                    </Link>
+                  </div>
+                )}
+              </div>
             ))}
           </div>
+        )}
+      </div>
 
-          {/* Transactions & Double-Entry Ledger Details */}
-          <div className="card">
-            <div className="card-header">
-              <div>
-                <h3 className="card-title">Transaction History</h3>
-                <span className="card-subtitle">
-                  Traceable double-entry transactions signed with persistent idempotency
-                </span>
-              </div>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <Link to="/customer/transactions" className="btn btn-secondary btn-sm">
-                  Full Journal
-                </Link>
-                <button onClick={loadData} className="btn btn-secondary btn-sm" disabled={loading}>
-                  Refresh
-                </button>
-              </div>
-            </div>
-
-            {loading ? (
-              <div style={{ padding: '2rem', textAlign: 'center', color: '#94A3B8' }}>
-                Loading transaction records...
-              </div>
-            ) : transactions.length === 0 ? (
-              <div className="empty-state">
-                <Clock size={40} className="empty-state-icon" />
-                <p>No transactions found for this account yet.</p>
-                <p style={{ fontSize: '0.8125rem', marginTop: '0.25rem' }}>
-                  Use the Deposit button above to fund your account.
-                </p>
-              </div>
-            ) : (
-              <div className="table-container">
-                <table className="fintech-table">
-                  <thead>
-                    <tr>
-                      <th>Reference</th>
-                      <th>Type</th>
-                      <th>From / To</th>
-                      <th>Amount</th>
-                      <th>Status</th>
-                      <th>Date</th>
-                      <th>Ledger</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {transactions.map((tx) => (
-                      <React.Fragment key={tx.id || tx.reference}>
-                        <tr>
-                          <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                            {tx.reference}
-                          </td>
-                          <td>
-                            <span
-                              style={{
-                                fontSize: '0.75rem',
-                                fontWeight: 600,
-                                padding: '0.2rem 0.5rem',
-                                borderRadius: '4px',
-                                backgroundColor: '#F1F5F9',
-                                color: '#334155',
-                              }}
-                            >
-                              {tx.transactionType}
-                            </span>
-                          </td>
-                          <td style={{ fontSize: '0.8125rem' }}>
-                            {tx.sourceAccountNumber && (
-                              <div>
-                                <span style={{ color: '#64748B' }}>From:</span> {tx.sourceAccountNumber}
-                              </div>
-                            )}
-                            {tx.destinationAccountNumber && (
-                              <div>
-                                <span style={{ color: '#64748B' }}>To:</span> {tx.destinationAccountNumber}
-                              </div>
-                            )}
-                          </td>
-                          <td className="amount">
-                            ${parseFloat(tx.amount).toFixed(2)} {tx.currency}
-                          </td>
-                          <td>
-                            <span
-                              className={`badge ${
-                                tx.status === 'COMPLETED'
-                                  ? 'badge-completed'
-                                  : tx.status === 'PENDING'
-                                  ? 'badge-pending'
-                                  : 'badge-failed'
-                              }`}
-                            >
-                              {tx.status}
-                            </span>
-                          </td>
-                          <td style={{ fontSize: '0.8125rem', color: '#64748B' }}>
-                            {tx.createdAt ? new Date(tx.createdAt).toLocaleString() : 'Just now'}
-                          </td>
-                          <td>
-                            <button
-                              onClick={() => toggleExpandTx(tx.id || tx.reference)}
-                              className="btn btn-secondary btn-sm"
-                              style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
-                            >
-                              {expandedTxId === (tx.id || tx.reference) ? (
-                                <>
-                                  <span>Hide</span> <ChevronUp size={12} />
-                                </>
-                              ) : (
-                                <>
-                                  <span>Verify</span> <ChevronDown size={12} />
-                                </>
-                              )}
-                            </button>
-                          </td>
-                        </tr>
-
-                        {/* Expandable Double-Entry Ledger Inspector */}
-                        {expandedTxId === (tx.id || tx.reference) && (
-                          <tr style={{ backgroundColor: '#F8FAFC' }}>
-                            <td colSpan={7} style={{ padding: '1rem 1.5rem' }}>
-                              <div
-                                style={{
-                                  backgroundColor: 'white',
-                                  border: '1px solid #E2E8F0',
-                                  borderRadius: '8px',
-                                  padding: '1rem',
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '0.5rem',
-                                    marginBottom: '0.75rem',
-                                    fontSize: '0.8125rem',
-                                    fontWeight: 700,
-                                    color: '#0F172A',
-                                  }}
-                                >
-                                  <ShieldCheck size={16} color="#10B981" />
-                                  <span>Double-Entry Proof Journal ({tx.reference})</span>
-                                </div>
-
-                                {tx.ledgerEntries && tx.ledgerEntries.length > 0 ? (
-                                  <div style={{ display: 'grid', gap: '0.5rem' }}>
-                                    {tx.ledgerEntries.map((entry, idx) => (
-                                      <div
-                                        key={idx}
-                                        style={{
-                                          display: 'flex',
-                                          justifyContent: 'space-between',
-                                          alignItems: 'center',
-                                          padding: '0.5rem 0.75rem',
-                                          borderRadius: '6px',
-                                          backgroundColor: '#F8FAFC',
-                                          border: '1px solid #E2E8F0',
-                                          fontSize: '0.8125rem',
-                                        }}
-                                      >
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                          <DoubleEntryBadge
-                                            entryType={entry.entryType}
-                                            amount={entry.amount}
-                                            currency={entry.currency}
-                                          />
-                                          <span style={{ fontFamily: 'var(--font-mono)' }}>
-                                            {entry.accountNumber}
-                                          </span>
-                                        </div>
-                                        <div>
-                                          <span style={{ color: '#64748B' }}>Balance After: </span>
-                                          <span style={{ fontWeight: 600 }}>
-                                            ${parseFloat(entry.balanceAfter).toFixed(2)}
-                                          </span>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <span style={{ color: '#64748B', fontSize: '0.8125rem' }}>
-                                    Ledger entries recorded atomically at settlement.
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </>
-      ) : (
-        /* Account Statement View */
-        <div className="card" style={{ padding: '2rem' }}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              borderBottom: '2px solid #0F172A',
-              paddingBottom: '1.5rem',
-              marginBottom: '2rem',
-            }}
-          >
-            <div>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0F172A' }}>
-                LEDGERLINE FINANCIAL STATEMENT
-              </h2>
-              <div style={{ fontSize: '0.875rem', color: '#64748B' }}>
-                Generated on {new Date().toLocaleDateString()} for {user?.fullName} ({user?.email})
-              </div>
-            </div>
-            <button
-              onClick={() => window.print()}
-              className="btn btn-secondary"
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-            >
-              <Printer size={16} />
-              <span>Print / Save PDF</span>
-            </button>
-          </div>
-
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '2rem',
-              marginBottom: '2rem',
-              backgroundColor: '#F8FAFC',
-              padding: '1.25rem',
-              borderRadius: '8px',
-            }}
-          >
-            <div>
-              <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748B', fontWeight: 600 }}>
-                Customer Information
-              </div>
-              <div style={{ fontWeight: 700, fontSize: '1rem' }}>{user?.fullName}</div>
-              <div style={{ color: '#64748B', fontSize: '0.875rem' }}>User: {user?.username}</div>
-              <div style={{ color: '#64748B', fontSize: '0.875rem' }}>Role: {user?.role}</div>
-            </div>
-
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: '#64748B', fontWeight: 600 }}>
-                Consolidated Liquid Balance
-              </div>
-              <div style={{ fontWeight: 800, fontSize: '1.5rem', color: '#0F172A' }}>
-                ${totalBalance.toFixed(2)} USD
-              </div>
-              <div style={{ color: '#10B981', fontSize: '0.8125rem', fontWeight: 600 }}>
-                ✓ Proven Double-Entry Balanced
-              </div>
-            </div>
-          </div>
-
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '1rem' }}>
-            Account Breakdown
-          </h3>
-          <div className="table-container" style={{ marginBottom: '2rem' }}>
-            <table className="fintech-table">
-              <thead>
-                <tr>
-                  <th>Account Number</th>
-                  <th>Type</th>
-                  <th>Currency</th>
-                  <th>Status</th>
-                  <th>Available Balance</th>
-                </tr>
-              </thead>
-              <tbody>
-                {accounts.map((acc) => (
-                  <tr key={acc.id}>
-                    <td style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{acc.accountNumber}</td>
-                    <td>{acc.accountType}</td>
-                    <td>{acc.currency}</td>
-                    <td>
-                      <span className="badge badge-completed">{acc.status}</span>
-                    </td>
-                    <td className="amount" style={{ fontWeight: 700 }}>
-                      ${parseFloat(acc.balance).toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '1rem' }}>
-            Settled Transactions
-          </h3>
-          <div className="table-container">
-            <table className="fintech-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Reference</th>
-                  <th>Description</th>
-                  <th>Type</th>
-                  <th>Amount</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((tx) => (
-                  <tr key={tx.id || tx.reference}>
-                    <td>{new Date(tx.createdAt).toLocaleDateString()}</td>
-                    <td style={{ fontFamily: 'var(--font-mono)' }}>{tx.reference}</td>
-                    <td>{tx.description}</td>
-                    <td>{tx.transactionType}</td>
-                    <td className="amount">${parseFloat(tx.amount).toFixed(2)}</td>
-                    <td>
-                      <span className="badge badge-completed">{tx.status}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* Section: ON YOUR TERMS / Quick actions */}
+      <div style={{ marginBottom: '2.5rem' }}>
+        <div className="bv-section-header">
+          <span>ON YOUR TERMS</span>
         </div>
-      )}
+        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0B251C', marginBottom: '1rem' }}>
+          Quick actions
+        </h2>
 
-      {/* Transaction Modal */}
+        <div className="bv-quick-actions-grid">
+          {/* Deposit */}
+          <button
+            type="button"
+            onClick={() => handleActionClick('deposit')}
+            className="bv-action-card deposit"
+          >
+            <div className="bv-action-icon">
+              <Plus size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0B251C' }}>Deposit</div>
+              <div style={{ fontSize: '0.75rem', color: '#4A6356' }}>Add funds</div>
+            </div>
+          </button>
+
+          {/* Withdraw */}
+          <button
+            type="button"
+            onClick={() => handleActionClick('withdraw')}
+            className="bv-action-card withdraw"
+          >
+            <div className="bv-action-icon">
+              <ArrowUpRight size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0B251C' }}>Withdraw</div>
+              <div style={{ fontSize: '0.75rem', color: '#745B38' }}>Move funds out</div>
+            </div>
+          </button>
+
+          {/* Transfer */}
+          <button
+            type="button"
+            onClick={() => handleActionClick('transfer')}
+            className="bv-action-card transfer"
+          >
+            <div className="bv-action-icon">
+              <ArrowLeftRight size={18} />
+            </div>
+            <div>
+              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#0B251C' }}>Transfer</div>
+              <div style={{ fontSize: '0.75rem', color: '#3A576E' }}>Between accounts</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      {/* Section: LEDGER / Transaction activity */}
+      <div style={{ marginBottom: '2.5rem' }}>
+        <div className="bv-section-header">
+          <span>LEDGER</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#0B251C', margin: 0 }}>
+            Transaction activity
+          </h2>
+          {transactions.length > 0 && (
+            <Link
+              to="/customer/transactions"
+              style={{ fontSize: '0.8125rem', color: '#0B251C', fontWeight: 600, textDecoration: 'none' }}
+            >
+              Full Journal &rarr;
+            </Link>
+          )}
+        </div>
+
+        {transactions.length === 0 ? (
+          /* Empty state matching uploaded screenshot */
+          <div className="bv-empty-box">
+            <div className="bv-empty-icon">
+              <Sparkles size={22} />
+            </div>
+            <div className="bv-empty-title">No accounts available</div>
+            <p className="bv-empty-desc">
+              Account activity will appear when you have assets in an account.
+            </p>
+          </div>
+        ) : (
+          <div className="table-responsive" style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', border: '1px solid #E5EBE5', overflow: 'hidden' }}>
+            <table className="table" style={{ margin: 0 }}>
+              <thead>
+                <tr style={{ backgroundColor: '#F8FAF8', borderBottom: '1px solid #E5EBE5' }}>
+                  <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Reference</th>
+                  <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date & Time</th>
+                  <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
+                  <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Counterparty</th>
+                  <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right' }}>Amount</th>
+                  <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
+                  <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center' }}>Double-Entry</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transactions.slice(0, 5).map((tx) => (
+                  <tr key={tx.id} style={{ borderBottom: '1px solid #F4F7F4' }}>
+                    <td style={{ fontFamily: 'ui-monospace, monospace', fontSize: '0.8125rem', fontWeight: 600, color: '#0B251C' }}>
+                      {tx.reference}
+                    </td>
+                    <td style={{ fontSize: '0.8125rem', color: '#667085' }}>
+                      {new Date(tx.createdAt).toLocaleString()}
+                    </td>
+                    <td>
+                      <span className={`badge badge-${tx.transactionType === 'DEPOSIT' ? 'success' : tx.transactionType === 'WITHDRAWAL' ? 'warning' : 'primary'}`}>
+                        {tx.transactionType}
+                      </span>
+                    </td>
+                    <td style={{ fontSize: '0.8125rem', color: '#4A5568' }}>
+                      {tx.transactionType === 'DEPOSIT'
+                        ? `Clearing Deposit → ${tx.destinationAccountNumber}`
+                        : tx.transactionType === 'WITHDRAWAL'
+                        ? `${tx.sourceAccountNumber} → Clearing Withdrawal`
+                        : `${tx.sourceAccountNumber} → ${tx.destinationAccountNumber}`}
+                    </td>
+                    <td style={{ textAlign: 'right', fontWeight: 600, fontSize: '0.875rem', color: tx.transactionType === 'DEPOSIT' ? '#166534' : '#0B251C' }}>
+                      {tx.transactionType === 'DEPOSIT' ? '+' : '-'}${parseFloat(tx.amount || 0).toFixed(2)}
+                    </td>
+                    <td>
+                      <span className="badge badge-success">{tx.status}</span>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <button
+                        type="button"
+                        onClick={() => toggleExpandTx(tx.id)}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.75rem', padding: '0.2rem 0.5rem' }}
+                      >
+                        {expandedTxId === tx.id ? 'Hide' : 'Inspect'}
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Transaction Modal (Deposit / Withdraw / Transfer) */}
       <TransactionModal
         isOpen={!!modalType}
         onClose={() => setModalType(null)}
-        type={modalType}
-        accounts={accounts}
+        initialType={modalType || 'deposit'}
+        accounts={activeAccounts}
         onSuccess={() => {
-          setSuccessMessage(`${modalType.toUpperCase()} completed successfully`);
+          setSuccessMessage('Transaction completed with balanced double-entry ledger records');
+          loadData();
+        }}
+      />
+
+      {/* Account Request Modal */}
+      <AccountRequestModal
+        isOpen={requestModalOpen}
+        onClose={() => setRequestModalOpen(false)}
+        onSuccess={() => {
+          setSuccessMessage('Account request submitted. An administrator will review and activate your account.');
           loadData();
         }}
       />

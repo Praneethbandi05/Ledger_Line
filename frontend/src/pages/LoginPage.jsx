@@ -9,16 +9,29 @@ export const LoginPage = () => {
   const navigate = useNavigate();
 
   const [isRegister, setIsRegister] = useState(false);
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [email, setEmail] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
+
+    if (isRegister) {
+      if (password.length < 8) {
+        setError('Password must be at least 8 characters long');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setError('Password and Confirm Password do not match');
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
@@ -51,6 +64,7 @@ export const LoginPage = () => {
     setIsRegister(false);
     setUsername(userVal);
     setPassword(passVal);
+    setConfirmPassword('');
     setError(null);
   };
 
@@ -61,7 +75,7 @@ export const LoginPage = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
+        backgroundColor: '#F8FAF8',
         padding: '1.5rem',
       }}
     >
@@ -70,31 +84,51 @@ export const LoginPage = () => {
           width: '100%',
           maxWidth: '460px',
           backgroundColor: '#FFFFFF',
-          borderRadius: '16px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+          borderRadius: '20px',
+          boxShadow: '0 20px 40px -15px rgba(11, 37, 28, 0.1)',
+          border: '1px solid #E5EBE5',
           overflow: 'hidden',
         }}
       >
-        <div style={{ backgroundColor: '#0F172A', color: 'white', padding: '2rem', textAlign: 'center' }}>
+        {/* Brand Header */}
+        <div style={{ backgroundColor: '#092218', color: 'white', padding: '2.25rem 2rem 2rem', textAlign: 'center' }}>
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.5rem' }}>
-            <ShieldCheck size={28} color="#3B82F6" />
-            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-0.025em' }}>LEDGERLINE</h1>
+            <div
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                border: '1.5px solid #34D399',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1rem',
+                fontWeight: 700,
+                color: '#34D399',
+                fontFamily: "'Newsreader', 'Georgia', serif",
+              }}
+            >
+              b
+            </div>
+            <h1 style={{ fontSize: '1.625rem', fontWeight: 700, letterSpacing: '-0.025em', color: '#FFFFFF' }}>
+              balancevault
+            </h1>
           </div>
-          <p style={{ color: '#94A3B8', fontSize: '0.875rem' }}>
-            Money Movement With a Ledger You Can Prove
+          <p style={{ color: '#95B2A4', fontSize: '0.8125rem', margin: 0, lineHeight: 1.4 }}>
+            Money movement with a ledger you can prove
           </p>
         </div>
 
         <div style={{ padding: '2rem' }}>
-          {/* Quick Demo Selector */}
+          {/* Quick Demo Assessment Selector */}
           <div style={{ marginBottom: '1.5rem' }}>
             <span
               style={{
-                fontSize: '0.75rem',
-                fontWeight: 600,
-                color: '#64748B',
+                fontSize: '0.6875rem',
+                fontWeight: 700,
+                color: '#688073',
                 textTransform: 'uppercase',
-                letterSpacing: '0.05em',
+                letterSpacing: '0.08em',
                 display: 'block',
                 marginBottom: '0.5rem',
               }}
@@ -106,38 +140,39 @@ export const LoginPage = () => {
                 type="button"
                 onClick={() => fillQuickDemo('alice', 'Customer@123')}
                 className="btn btn-secondary btn-sm"
-                style={{ fontSize: '0.75rem', justifyContent: 'flex-start' }}
+                style={{ fontSize: '0.75rem', justifyContent: 'flex-start', borderColor: '#E5EBE5', color: '#0B251C' }}
               >
-                👤 Alice (Customer)
+                👤 Alice (Account holder)
               </button>
               <button
                 type="button"
                 onClick={() => fillQuickDemo('bob', 'Customer@123')}
                 className="btn btn-secondary btn-sm"
-                style={{ fontSize: '0.75rem', justifyContent: 'flex-start' }}
+                style={{ fontSize: '0.75rem', justifyContent: 'flex-start', borderColor: '#E5EBE5', color: '#0B251C' }}
               >
-                👤 Bob (Customer)
+                👤 Bob (Account holder)
               </button>
               <button
                 type="button"
                 onClick={() => fillQuickDemo('admin', 'Admin@12345')}
                 className="btn btn-secondary btn-sm"
-                style={{ fontSize: '0.75rem', justifyContent: 'flex-start' }}
+                style={{ fontSize: '0.75rem', justifyContent: 'flex-start', borderColor: '#E5EBE5', color: '#0B251C' }}
               >
-                🛡️ Admin User
+                🛡️ Administrator
               </button>
               <button
                 type="button"
                 onClick={() => fillQuickDemo('auditor', 'Auditor@12345')}
                 className="btn btn-secondary btn-sm"
-                style={{ fontSize: '0.75rem', justifyContent: 'flex-start' }}
+                style={{ fontSize: '0.75rem', justifyContent: 'flex-start', borderColor: '#E5EBE5', color: '#0B251C' }}
               >
-                🔍 Auditor User
+                🔍 Compliance Auditor
               </button>
             </div>
           </div>
 
-          <div className="tabs">
+          {/* Form Tabs */}
+          <div className="tabs" style={{ marginBottom: '1.25rem' }}>
             <button
               type="button"
               className={`tab-btn ${!isRegister ? 'active' : ''}`}
@@ -145,8 +180,9 @@ export const LoginPage = () => {
                 setIsRegister(false);
                 setError(null);
               }}
+              style={!isRegister ? { borderBottomColor: '#092218', color: '#092218' } : {}}
             >
-              Secure Sign In
+              Sign In
             </button>
             <button
               type="button"
@@ -155,8 +191,9 @@ export const LoginPage = () => {
                 setIsRegister(true);
                 setError(null);
               }}
+              style={isRegister ? { borderBottomColor: '#092218', color: '#092218' } : {}}
             >
-              Register Customer
+              Register Account Holder
             </button>
           </div>
 
@@ -165,23 +202,28 @@ export const LoginPage = () => {
           <form onSubmit={handleSubmit}>
             {isRegister && (
               <>
-                <div className="form-group">
-                  <label className="form-label">Full Name</label>
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#344054' }}>
+                    Full Name
+                  </label>
                   <input
                     type="text"
                     className="form-control"
-                    placeholder="Alice Smith"
+                    placeholder="e.g. Praneeth Bandi"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     required
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Email Address</label>
+
+                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                  <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#344054' }}>
+                    Email Address
+                  </label>
                   <input
                     type="email"
                     className="form-control"
-                    placeholder="alice@customer.com"
+                    placeholder="praneeth@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -190,20 +232,24 @@ export const LoginPage = () => {
               </>
             )}
 
-            <div className="form-group">
-              <label className="form-label">Username</label>
+            <div className="form-group" style={{ marginBottom: '1rem' }}>
+              <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#344054' }}>
+                Username
+              </label>
               <input
                 type="text"
                 className="form-control"
-                placeholder="e.g. alice"
+                placeholder="e.g. prnth"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
               />
             </div>
 
-            <div className="form-group">
-              <label className="form-label">Password</label>
+            <div className="form-group" style={{ marginBottom: isRegister ? '1rem' : '1.25rem' }}>
+              <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#344054' }}>
+                Password
+              </label>
               <input
                 type="password"
                 className="form-control"
@@ -214,17 +260,40 @@ export const LoginPage = () => {
               />
             </div>
 
+            {isRegister && (
+              <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+                <label className="form-label" style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#344054' }}>
+                  Confirm Password
+                </label>
+                <input
+                  type="password"
+                  className="form-control"
+                  placeholder="Re-enter password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+            )}
+
             <button
               type="submit"
               className="btn btn-primary"
-              style={{ width: '100%', marginTop: '1rem', padding: '0.75rem' }}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                backgroundColor: '#092218',
+                borderColor: '#092218',
+                fontWeight: 600,
+                borderRadius: '10px',
+              }}
               disabled={loading}
             >
               {loading
                 ? 'Authenticating...'
                 : isRegister
-                ? 'Create Customer Account'
-                : 'Sign In to LedgerLine'}
+                ? 'Create Account Holder Profile'
+                : 'Sign In to BalanceVault'}
             </button>
           </form>
 
@@ -232,10 +301,10 @@ export const LoginPage = () => {
             style={{
               marginTop: '1.5rem',
               paddingTop: '1rem',
-              borderTop: '1px solid #E2E8F0',
+              borderTop: '1px solid #E5EBE5',
               textAlign: 'center',
               fontSize: '0.75rem',
-              color: '#94A3B8',
+              color: '#688073',
             }}
           >
             🔒 Protected by BCrypt • Signed JWT • Role-Based Access Control

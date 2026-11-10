@@ -1,8 +1,10 @@
 package com.ledgerline.service;
 
 import com.ledgerline.dto.auth.AuthResponse;
+import com.ledgerline.dto.auth.ChangePasswordRequest;
 import com.ledgerline.dto.auth.LoginRequest;
 import com.ledgerline.dto.auth.RegisterRequest;
+import com.ledgerline.dto.auth.UpdateProfileRequest;
 import com.ledgerline.dto.auth.UserProfileResponse;
 import com.ledgerline.entity.Account;
 import com.ledgerline.entity.User;
@@ -86,20 +88,11 @@ public class AuthService {
 
         User savedUser = userRepository.save(user);
 
-        // Provision initial active savings account with 0.00 balance
-        String initialAccountNumber = generateUniqueAccountNumber();
-        Account initialAccount = new Account(
-                initialAccountNumber,
-                savedUser,
-                AccountType.SAVINGS,
-                "USD",
-                BigDecimal.ZERO
-        );
-        accountRepository.save(initialAccount);
-
-        log.info("Registered new customer user {} with account {}", savedUser.getUsername(), initialAccountNumber);
+        // Account onboarding workflow: Newly registered users onboard with 0 accounts
+        // and must request an account for Administrator review & approval
+        log.info("Registered new customer user {}", savedUser.getUsername());
         auditService.recordEvent(savedUser.getUsername(), savedUser.getRole().name(), "USER_REGISTER",
-                "USER", savedUser.getUsername(), "SUCCESS", "Customer registered with initial account " + initialAccountNumber);
+                "USER", savedUser.getUsername(), "SUCCESS", "Customer registered successfully awaiting account request");
 
         String token = jwtTokenProvider.generateTokenFromUser(savedUser);
         UserProfileResponse profile = new UserProfileResponse(
@@ -170,6 +163,48 @@ public class AuthService {
                 user.getEmail(),
                 user.getFullName(),
                 user.getRole()
+        );
+    }
+
+    @Transactional
+    public void changePassword(ChangePasswordRequest request) {
+        String username = securityContextHelper.getCurrentUsername();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new LedgerLineException("Authenticated user not found", HttpStatus.NOT_FOUND));
+
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            auditService.recordSecurityEvent(username, user.getRole().name(), "PASSWORD_CHANGE_FAILED",
+                    "AUTH", username, "FAILURE", "Current password does not match");
+            throw new LedgerLineException("Current password does not match records", HttpStatus.BAD_REQUEST);
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        auditService.recordEvent(username, user.getRole().name(), "PASSWORD_CHANGE",
+                "AUTH", username, "SUCCESS", "User changed account password successfully");
+        log.info("User {} changed password successfully", username);
+    }
+
+    @Transactional
+    public UserProfileResponse updateProfile(UpdateProfileRequest request) {
+        String username = securityContextHelper.getCurrentUsername();
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new LedgerLineException("Authenticated user not found", HttpStatus.NOT_FOUND));
+
+        user.setFullName(request.getFullName().trim());
+        user.setEmail(request.getEmail().trim().toLowerCase());
+        User saved = userRepository.save(user);
+
+        auditService.recordEvent(username, user.getRole().name(), "PROFILE_UPDATE",
+                "USER", username, "SUCCESS", "User updated profile information");
+
+        return new UserProfileResponse(
+                saved.getId(),
+                saved.getUsername(),
+                saved.getEmail(),
+                saved.getFullName(),
+                saved.getRole()
         );
     }
 
