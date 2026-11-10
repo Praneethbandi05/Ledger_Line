@@ -81,6 +81,14 @@ export const CustomerStatementPage = () => {
 
   const selectedAccount = accounts.find((a) => a.id.toString() === selectedAccountId);
 
+  const totalDebits = (statement?.transactions || [])
+    .filter((tx) => !(tx.transactionType === 'DEPOSIT' || tx.destinationAccount?.id === selectedAccount?.id))
+    .reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
+
+  const totalCredits = (statement?.transactions || [])
+    .filter((tx) => tx.transactionType === 'DEPOSIT' || tx.destinationAccount?.id === selectedAccount?.id)
+    .reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
+
   return (
     <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
       {/* Page Header */}
@@ -252,99 +260,220 @@ export const CustomerStatementPage = () => {
           </div>
 
           {/* Account Particulars & Summary */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1.5rem', marginBottom: '2rem', backgroundColor: '#F8FAF8', padding: '1.25rem', borderRadius: '12px' }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '1.5rem',
+              marginBottom: '2.5rem',
+              backgroundColor: '#F8FAF8',
+              padding: '1.5rem',
+              borderRadius: '12px',
+              border: '1px solid #E5EBE5',
+            }}
+          >
             <div>
-              <div style={{ fontSize: '0.6875rem', color: '#688073', textTransform: 'uppercase', fontWeight: 700 }}>
+              <div style={{ fontSize: '0.6875rem', color: '#688073', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
                 Account Reference
               </div>
-              <div style={{ fontSize: '1rem', fontWeight: 700, color: '#092218', fontFamily: 'var(--font-mono)' }}>
+              <div style={{ fontSize: '1.0625rem', fontWeight: 700, color: '#092218', fontFamily: 'var(--font-mono)', marginTop: '0.25rem' }}>
                 {statement.accountNumber || selectedAccount?.accountNumber}
               </div>
-              <div style={{ fontSize: '0.75rem', color: '#688073' }}>
+              <div style={{ fontSize: '0.75rem', color: '#688073', marginTop: '0.125rem' }}>
                 {selectedAccount?.accountType} &bull; {selectedAccount?.currency}
               </div>
             </div>
 
             <div>
-              <div style={{ fontSize: '0.6875rem', color: '#688073', textTransform: 'uppercase', fontWeight: 700 }}>
+              <div style={{ fontSize: '0.6875rem', color: '#688073', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
                 Starting Balance
               </div>
-              <div style={{ fontSize: '1.125rem', fontWeight: 700, color: '#092218', fontFamily: "'Newsreader', serif" }}>
+              <div style={{ fontSize: '1.1875rem', fontWeight: 700, color: '#092218', fontFamily: "'Newsreader', serif", marginTop: '0.25rem' }}>
                 ${parseFloat(statement.openingBalance || statement.startingBalance || 0).toFixed(2)}
               </div>
             </div>
 
             <div>
-              <div style={{ fontSize: '0.6875rem', color: '#688073', textTransform: 'uppercase', fontWeight: 700 }}>
+              <div style={{ fontSize: '0.6875rem', color: '#688073', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
                 Closing Balance
               </div>
-              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#166534', fontFamily: "'Newsreader', serif" }}>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#166534', fontFamily: "'Newsreader', serif", marginTop: '0.25rem' }}>
                 ${parseFloat(statement.closingBalance || selectedAccount?.balance || 0).toFixed(2)}
               </div>
             </div>
 
             <div>
-              <div style={{ fontSize: '0.6875rem', color: '#688073', textTransform: 'uppercase', fontWeight: 700 }}>
+              <div style={{ fontSize: '0.6875rem', color: '#688073', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.04em' }}>
                 Ledger Invariant
               </div>
-              <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#166534', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                <CheckCircle2 size={14} /> Proven Balanced
+              <div style={{ fontSize: '0.875rem', fontWeight: 600, color: '#166534', display: 'flex', alignItems: 'center', gap: '0.375rem', marginTop: '0.25rem' }}>
+                <CheckCircle2 size={16} /> Proven Balanced
               </div>
             </div>
           </div>
 
           {/* Transactions List */}
-          <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#092218', marginBottom: '1rem' }}>
-            Journal Line Items ({statement.transactions?.length || 0})
-          </h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3 style={{ fontSize: '1.0625rem', fontWeight: 600, color: '#092218', margin: 0 }}>
+              Journal Line Items ({statement.transactions?.length || 0})
+            </h3>
+            <span style={{ fontSize: '0.75rem', color: '#688073' }}>
+              Double-Entry Financial Postings
+            </span>
+          </div>
 
           {!statement.transactions || statement.transactions.length === 0 ? (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#688073', fontSize: '0.875rem', backgroundColor: '#F8FAF8', borderRadius: '10px' }}>
+            <div style={{ padding: '2.5rem', textAlign: 'center', color: '#688073', fontSize: '0.875rem', backgroundColor: '#F8FAF8', borderRadius: '12px', border: '1px solid #E5EBE5' }}>
               No transactions recorded in the selected statement period.
             </div>
           ) : (
-            <table className="table" style={{ margin: 0 }}>
-              <thead>
-                <tr>
-                  <th>Posting Date</th>
-                  <th>Transaction Reference</th>
-                  <th>Classification</th>
-                  <th>Description</th>
-                  <th style={{ textAlign: 'right' }}>Debit (-)</th>
-                  <th style={{ textAlign: 'right' }}>Credit (+)</th>
-                </tr>
-              </thead>
-              <tbody>
-                {statement.transactions.map((tx) => {
-                  const isCredit = tx.transactionType === 'DEPOSIT' || tx.destinationAccount?.id === selectedAccount?.id;
-                  const amt = parseFloat(tx.amount || 0).toFixed(2);
-                  return (
-                    <tr key={tx.id}>
-                      <td style={{ fontSize: '0.8125rem', color: '#64748B' }}>
-                        {new Date(tx.createdAt).toLocaleDateString()}
-                      </td>
-                      <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 600 }}>
-                        {tx.reference}
-                      </td>
-                      <td>
-                        <span style={{ fontSize: '0.6875rem', fontWeight: 700, padding: '0.2rem 0.4rem', borderRadius: '4px', backgroundColor: '#F1F5F2', color: '#092218' }}>
-                          {tx.transactionType}
-                        </span>
-                      </td>
-                      <td style={{ fontSize: '0.8125rem', color: '#334155' }}>
-                        {tx.description}
-                      </td>
-                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: !isCredit ? '#B91C1C' : '#94A3B8' }}>
-                        {!isCredit ? `-$${amt}` : '—'}
-                      </td>
-                      <td style={{ textAlign: 'right', fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: isCredit ? '#15803D' : '#94A3B8' }}>
-                        {isCredit ? `+$${amt}` : '—'}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <div
+              style={{
+                width: '100%',
+                overflowX: 'auto',
+                borderRadius: '12px',
+                border: '1px solid #D0D5DD',
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                marginBottom: '1rem',
+              }}
+            >
+              <table
+                className="bv-statement-table"
+                style={{
+                  width: '100%',
+                  borderCollapse: 'collapse',
+                  textAlign: 'left',
+                  margin: 0,
+                  backgroundColor: '#FFFFFF',
+                }}
+              >
+                <thead>
+                  <tr style={{ backgroundColor: '#F4F7F4', borderBottom: '2px solid #092218' }}>
+                    <th style={{ padding: '0.875rem 1rem', fontSize: '0.75rem', fontWeight: 700, color: '#092218', textTransform: 'uppercase', letterSpacing: '0.04em', width: '14%' }}>
+                      Posting Date
+                    </th>
+                    <th style={{ padding: '0.875rem 1rem', fontSize: '0.75rem', fontWeight: 700, color: '#092218', textTransform: 'uppercase', letterSpacing: '0.04em', width: '25%' }}>
+                      Transaction Reference
+                    </th>
+                    <th style={{ padding: '0.875rem 1rem', fontSize: '0.75rem', fontWeight: 700, color: '#092218', textTransform: 'uppercase', letterSpacing: '0.04em', width: '15%' }}>
+                      Classification
+                    </th>
+                    <th style={{ padding: '0.875rem 1rem', fontSize: '0.75rem', fontWeight: 700, color: '#092218', textTransform: 'uppercase', letterSpacing: '0.04em', width: '22%' }}>
+                      Description
+                    </th>
+                    <th style={{ padding: '0.875rem 1rem', fontSize: '0.75rem', fontWeight: 700, color: '#991B1B', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', width: '12%', borderLeft: '1px solid #E2E8E0', minWidth: '120px' }}>
+                      Debit (-)
+                    </th>
+                    <th style={{ padding: '0.875rem 1rem', fontSize: '0.75rem', fontWeight: 700, color: '#166534', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right', width: '12%', borderLeft: '1px solid #E2E8E0', minWidth: '120px' }}>
+                      Credit (+)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {statement.transactions.map((tx, idx) => {
+                    const isCredit = tx.transactionType === 'DEPOSIT' || tx.destinationAccount?.id === selectedAccount?.id;
+                    const amt = parseFloat(tx.amount || 0).toFixed(2);
+                    return (
+                      <tr
+                        key={tx.id}
+                        style={{
+                          backgroundColor: idx % 2 === 1 ? '#FAFCFA' : '#FFFFFF',
+                          borderBottom: '1px solid #E5EBE5',
+                        }}
+                      >
+                        <td style={{ padding: '0.875rem 1rem', fontSize: '0.8125rem', color: '#475467', whiteSpace: 'nowrap' }}>
+                          {new Date(tx.createdAt).toLocaleDateString()}
+                        </td>
+                        <td style={{ padding: '0.875rem 1rem', fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', fontWeight: 600, color: '#092218' }}>
+                          {tx.reference}
+                        </td>
+                        <td style={{ padding: '0.875rem 1rem' }}>
+                          <span
+                            style={{
+                              fontSize: '0.6875rem',
+                              fontWeight: 700,
+                              padding: '0.25rem 0.5rem',
+                              borderRadius: '6px',
+                              backgroundColor: tx.transactionType === 'DEPOSIT' ? '#ECFDF5' : tx.transactionType === 'WITHDRAWAL' ? '#FFFBEB' : '#EFF6FF',
+                              color: tx.transactionType === 'DEPOSIT' ? '#047857' : tx.transactionType === 'WITHDRAWAL' ? '#B45309' : '#1D4ED8',
+                              border: '1px solid',
+                              borderColor: tx.transactionType === 'DEPOSIT' ? '#A7F3D0' : tx.transactionType === 'WITHDRAWAL' ? '#FDE68A' : '#BFDBFE',
+                              display: 'inline-block',
+                            }}
+                          >
+                            {tx.transactionType}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.875rem 1rem', fontSize: '0.8125rem', color: '#344054' }}>
+                          {tx.description}
+                        </td>
+                        <td
+                          style={{
+                            padding: '0.875rem 1rem',
+                            textAlign: 'right',
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '0.875rem',
+                            fontWeight: !isCredit ? 600 : 400,
+                            color: !isCredit ? '#B91C1C' : '#98A2B3',
+                            borderLeft: '1px solid #E5EBE5',
+                            backgroundColor: !isCredit ? 'rgba(254, 242, 242, 0.3)' : 'transparent',
+                          }}
+                        >
+                          {!isCredit ? `-$${amt}` : '—'}
+                        </td>
+                        <td
+                          style={{
+                            padding: '0.875rem 1rem',
+                            textAlign: 'right',
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '0.875rem',
+                            fontWeight: isCredit ? 600 : 400,
+                            color: isCredit ? '#15803D' : '#98A2B3',
+                            borderLeft: '1px solid #E5EBE5',
+                            backgroundColor: isCredit ? 'rgba(236, 253, 245, 0.3)' : 'transparent',
+                          }}
+                        >
+                          {isCredit ? `+$${amt}` : '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr style={{ backgroundColor: '#F4F7F4', borderTop: '2px solid #092218', fontWeight: 700 }}>
+                    <td colSpan={4} style={{ padding: '0.875rem 1rem', fontSize: '0.8125rem', color: '#092218', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      Statement Period Totals:
+                    </td>
+                    <td
+                      style={{
+                        padding: '0.875rem 1rem',
+                        textAlign: 'right',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.875rem',
+                        fontWeight: 700,
+                        color: totalDebits > 0 ? '#B91C1C' : '#688073',
+                        borderLeft: '1px solid #E2E8E0',
+                      }}
+                    >
+                      {totalDebits > 0 ? `-$${totalDebits.toFixed(2)}` : '$0.00'}
+                    </td>
+                    <td
+                      style={{
+                        padding: '0.875rem 1rem',
+                        textAlign: 'right',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '0.875rem',
+                        fontWeight: 700,
+                        color: totalCredits > 0 ? '#15803D' : '#688073',
+                        borderLeft: '1px solid #E2E8E0',
+                      }}
+                    >
+                      {totalCredits > 0 ? `+$${totalCredits.toFixed(2)}` : '$0.00'}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
           )}
 
           {/* Statement Certificate Footer */}

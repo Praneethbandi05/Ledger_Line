@@ -672,6 +672,39 @@ select:disabled {
   padding: 2rem;
 }
 
+/* Statement Table Styles */
+.bv-statement-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  font-size: 0.875rem !important;
+}
+
+.bv-statement-table th {
+  background-color: #F4F7F4 !important;
+  color: #092218 !important;
+  font-weight: 700 !important;
+  font-size: 0.75rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  border-bottom: 2px solid #092218 !important;
+  padding: 0.875rem 1rem !important;
+}
+
+.bv-statement-table td {
+  padding: 0.875rem 1rem !important;
+  border-bottom: 1px solid #E5EBE5 !important;
+  color: #101828 !important;
+}
+
+.bv-statement-table tr:hover td {
+  background-color: #F4F7F4;
+}
+
+.bv-statement-table tfoot td {
+  border-top: 2px solid #092218 !important;
+  background-color: #F4F7F4 !important;
+}
+
 /* Official Printable Statement Styles */
 .statement-paper,
 .bv-statement-paper {
