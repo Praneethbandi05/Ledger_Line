@@ -12,7 +12,7 @@ export const Layout = ({ children, breadcrumb = 'Workspace / Overview' }) => {
           {children}
         </main>
         <footer className="bv-footer">
-          <span>BalanceVault &bull; Financial clarity by design</span>
+          <span>Balance Vault &bull; Financial clarity by design</span>
           <span style={{ fontSize: '0.75rem', color: '#88988C' }}>Institutional Double-Entry Engine</span>
         </footer>
       </div>

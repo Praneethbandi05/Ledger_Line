@@ -336,7 +336,7 @@ export const CustomerProfilePage = () => {
               Personal Details
             </h3>
             <p style={{ fontSize: '0.8125rem', color: '#688073', margin: 0 }}>
-              Update your identity details registered with BalanceVault institutional accounts.
+              Update your identity details registered with Balance Vault institutional accounts.
             </p>
           </div>
 
@@ -735,7 +735,7 @@ export const CustomerProfilePage = () => {
           }}
         >
           <LogOut size={16} color="#DC2626" />
-          <span>Sign Out of BalanceVault Session</span>
+          <span>Sign Out of Balance Vault Session</span>
         </button>
       </div>
     </div>

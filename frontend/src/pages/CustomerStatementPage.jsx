@@ -238,7 +238,7 @@ export const CustomerStatementPage = () => {
               </div>
               <div>
                 <div style={{ fontSize: '1.375rem', fontWeight: 700, fontFamily: "'Newsreader', serif", color: '#092218' }}>
-                  balancevault
+                  Balance Vault
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#688073' }}>
                   Institutional Double-Entry Ledger Statement
@@ -478,7 +478,7 @@ export const CustomerStatementPage = () => {
 
           {/* Statement Certificate Footer */}
           <div style={{ marginTop: '2.5rem', paddingTop: '1.25rem', borderTop: '1px solid #E5EBE5', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#688073' }}>
-            <span>Certificate of Authentic Ledger Recording &bull; BalanceVault Financial Platform</span>
+            <span>Certificate of Authentic Ledger Recording &bull; Balance Vault Financial Platform</span>
             <span>Cryptographically Verified &bull; Append-Only Audit Trail</span>
           </div>
         </div>

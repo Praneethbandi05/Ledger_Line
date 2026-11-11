@@ -241,7 +241,7 @@ export const AdminDashboard = () => {
             </div>
             <div style={{ padding: '1.5rem' }}>
               <p style={{ fontSize: '0.8125rem', color: '#667085', marginBottom: '1rem', lineHeight: 1.4 }}>
-                BalanceVault maintains institutional clearing accounts for external money movement counterparties.
+                Balance Vault maintains institutional clearing accounts for external money movement counterparties.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {systemAccounts.map((acc) => (

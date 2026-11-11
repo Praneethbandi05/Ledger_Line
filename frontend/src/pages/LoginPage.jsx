@@ -139,7 +139,7 @@ export const LoginPage = () => {
                 color: '#FFFFFF',
               }}
             >
-              balancevault
+              Balance Vault
             </span>
           </div>
           <p
@@ -539,7 +539,7 @@ export const LoginPage = () => {
                   : 'Authenticating...'
                 : isRegister
                 ? 'Create Account'
-                : 'Sign In to BalanceVault'}
+                : 'Sign In to Balance Vault'}
             </button>
           </form>
 
@@ -553,7 +553,7 @@ export const LoginPage = () => {
               lineHeight: 1.5,
             }}
           >
-            BalanceVault Financial Systems • Authenticated with JWT & Role-Based Access Control
+            Balance Vault Financial Systems • Authenticated with JWT & Role-Based Access Control
           </div>
         </div>
       </div>

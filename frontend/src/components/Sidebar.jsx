@@ -30,7 +30,7 @@ export const Sidebar = () => {
           <div className="bv-brand-icon">
             <span>b</span>
           </div>
-          <span className="bv-brand-text">balancevault</span>
+          <span className="bv-brand-text">Balance Vault</span>
         </div>
 
         {/* Navigation Body */}
@@ -211,7 +211,7 @@ export const Sidebar = () => {
             </div>
             <div className="bv-badge-status-dot">✓</div>
           </div>
-          <div className="bv-sidebar-copyright">BALANCEVAULT &bull; PRIVATE</div>
+          <div className="bv-sidebar-copyright">BALANCE VAULT &bull; PRIVATE</div>
         </div>
       </aside>
 
