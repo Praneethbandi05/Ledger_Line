@@ -1,32 +1,29 @@
-# LEDGERLINE – Architecture & System Design Documentation
+# System Architecture — Balance Vault
 
-**Project:** LEDGERLINE – Money Movement With a Ledger You Can Prove  
-**Assessment:** Snovasys 2026 Fresher Hiring Assessment  
-**Author:** Senior Software Architect, Financial Systems Engineer & Security Engineer  
-**Version:** 1.0.0  
+**Version:** 1.0.0
+
+This document describes the layered architecture, financial integrity mechanisms, concurrency strategy, idempotency engine, and security design of the Balance Vault platform.
 
 ---
 
-## 1. System Overview
+## System Overview
 
-LEDGERLINE is an institutional-grade financial transaction management system engineered to guarantee **absolute financial integrity**, **mathematical balance consistency**, **zero double-spending**, **stateless authorization**, and **immutable auditability**.
-
-The system adopts a **Clean Layered Architecture** with strict boundaries between REST interface contracts, domain service logic, database persistence, and security enforcement.
+Balance Vault is a full-stack financial transaction platform built on a strict double-entry accounting model. The backend enforces balance integrity through multiple independent mechanisms — application-layer validation, database-level constraints, pessimistic row locking, and immutable ledger records — so that financial data remains accurate even under concurrent access and hardware failures.
 
 ```mermaid
 flowchart TD
     subgraph Client ["Client Layer"]
         UI["React + Vite Single Page Application"]
-        ExtAPI["REST API Clients (cURL, Postman)"]
+        ExtAPI["REST API Clients"]
     end
 
     subgraph SecurityLayer ["Security & Boundary Layer"]
         Filter["JwtAuthenticationFilter"]
-        Blacklist["TokenBlacklistService (SHA-256 Persistent Store)"]
-        Validator["AccountOwnershipValidator (IDOR Defense)"]
+        Blacklist["TokenBlacklistService"]
+        Validator["AccountOwnershipValidator"]
     end
 
-    subgraph ControllerLayer ["REST Controller Layer (Thin)"]
+    subgraph ControllerLayer ["REST Controller Layer"]
         AuthCtrl["AuthController"]
         AccCtrl["AccountController"]
         TxCtrl["TransactionController"]
@@ -36,19 +33,19 @@ flowchart TD
     end
 
     subgraph ServiceLayer ["Core Domain & Financial Engine"]
-        TxSvc["TransactionService (@Transactional)"]
+        TxSvc["TransactionService"]
         AccSvc["AccountService"]
         AuthSvc["AuthService"]
         AuditSvc["AuditService"]
-        IdemEng["Idempotency Engine (SHA-256 Hashing)"]
-        LedgerEng["DoubleEntryLedgerEngine (Debits == Credits)"]
+        IdemEng["Idempotency Engine"]
+        LedgerEng["DoubleEntryLedgerEngine"]
     end
 
-    subgraph PersistenceLayer ["PostgreSQL 16 Persistence Layer"]
-        PessLock["Pessimistic Row Locking (SELECT ... FOR UPDATE)"]
-        DeterministicLock["Deterministic Lock Ordering (min(id1, id2) -> max(id1, id2))"]
-        CheckConstraints["CHECK Constraints (chk_balance >= 0)"]
-        Flyway["Flyway Versioned Migrations (V1..V5)"]
+    subgraph PersistenceLayer ["PostgreSQL 16 Persistence"]
+        PessLock["Pessimistic Row Locking"]
+        DeterministicLock["Deterministic Lock Ordering"]
+        CheckConstraints["CHECK Constraints"]
+        Flyway["Flyway Versioned Migrations"]
     end
 
     Client --> SecurityLayer
@@ -59,38 +56,36 @@ flowchart TD
 
 ---
 
-## 2. Clean Layered Architecture
+## Layered Package Design
 
-The backend codebase is organized under `com.ledgerline` in compliance with institutional clean code standards:
+The backend follows a strict layered architecture where each package has a single defined responsibility:
 
-| Package | Responsibility | Invariants & Constraints |
-| :--- | :--- | :--- |
-| `config` | Spring Security, Web MVC, CORS, PasswordEncoder, ObjectMapper. | No business logic. Standardized security filter chains. |
-| `controller` | Thin REST controllers accepting DTOs and validating with `@Valid`. | No direct entity exposure. No database operations. |
-| `dto` | Request and response representations with Bean Validation annotations. | Pure data carriers; no database annotations. |
-| `entity` | JPA domain models mapped to PostgreSQL tables. | All financial fields use `BigDecimal`. Table constraints configured. |
-| `enums` | Strongly-typed status and role representations (`Role`, `TransactionType`, `TransactionStatus`, `EntryType`, `AccountType`). | Closed set of valid states. |
-| `exception` | Centralized exception hierarchy and `@RestControllerAdvice`. | Standard RFC-7807 Problem Detail response payloads. |
-| `repository` | Spring Data JPA repositories with row-level locking queries. | Pure SQL/JPQL access. Hydration happens inside transaction. |
-| `security` | JJWT 0.12.6, token validation, user details service, IDOR validators. | Independent of financial business rules. |
-| `service` | Transactional business orchestrators (`@Transactional`). | Enforces idempotency, lock ordering, balance mutations. |
-| `ledger` | `DoubleEntryLedgerEngine` proving mathematical balance. | $\sum \text{Debits} == \sum \text{Credits} == \text{Amount}$. |
-| `audit` | Append-only immutable security and transaction event logger. | Entity marked `@Immutable`; deletion strictly prohibited. |
-| `util` | Numeric formatting, canonical JSON hashing, reference generators. | Pure, deterministic utility functions. |
+| Package      | Responsibility                                                           | Key Constraints                                             |
+|--------------|--------------------------------------------------------------------------|-------------------------------------------------------------|
+| `config`     | Spring Security, CORS, Web MVC, password encoder, ObjectMapper.          | No business logic.                                          |
+| `controller` | Thin REST controllers that accept DTOs and delegate to services.          | No entity exposure. No direct database interaction.         |
+| `dto`        | Request and response objects with Bean Validation annotations.            | No database annotations or domain logic.                    |
+| `entity`     | JPA entities mapped to PostgreSQL tables.                                | All financial fields use `BigDecimal`. Constraints declared. |
+| `enums`      | Strongly typed status and role representations.                           | Closed sets; no open strings for financial states.          |
+| `exception`  | Centralized exception hierarchy, `@RestControllerAdvice` error handler.   | RFC-7807 formatted error responses.                         |
+| `repository` | Spring Data JPA with custom locking queries.                             | Hydration happens inside a transaction.                     |
+| `security`   | JWT validation, token blacklist, IDOR ownership validators.               | Independent of financial business logic.                    |
+| `service`    | Transactional business logic and financial orchestration.                 | Enforces idempotency, lock ordering, and balance mutations. |
+| `ledger`     | `DoubleEntryLedgerEngine` — validates Σ(Debits) = Σ(Credits) = Amount.  | Throws `UnbalancedLedgerException` on mismatch.             |
+| `audit`      | Append-only event logging for security and financial events.             | `@Immutable` entity; deletion permanently disabled.         |
+| `util`       | BigDecimal helpers, SHA-256 hashing, reference number generation.        | Pure, deterministic, stateless functions.                   |
 
 ---
 
-## 3. Financial Integrity & Double-Entry Accounting
+## Financial Integrity: Double-Entry Accounting
 
-### 3.1 Double-Entry Balance Equation
+### The Balance Equation
 
-Every financial movement in LEDGERLINE creates a persistent `Transaction` record accompanied by **at least two balanced `LedgerEntry` records**:
+Every financial movement in the system produces a persistent `Transaction` record accompanied by at least two balanced `LedgerEntry` records. The invariant is:
 
-$$\sum \text{Debits} \equiv \sum \text{Credits} \equiv \text{Transaction Amount}$$
+> Σ(Debits) = Σ(Credits) = Transaction Amount
 
-- **DEBIT Entry:** Increases asset accounts (or debits clearing accounts).
-- **CREDIT Entry:** Decreases asset accounts (or credits clearing accounts).
-- If total debits do not match total credits to the exact cent, the `DoubleEntryLedgerEngine` throws `UnbalancedLedgerException` and the entire Spring `@Transactional` transaction rolls back.
+If this equation does not hold, `DoubleEntryLedgerEngine` throws `UnbalancedLedgerException`, and the Spring `@Transactional` boundary rolls back the entire operation — including balance updates, ledger entries, and audit log inserts.
 
 ```mermaid
 flowchart LR
@@ -113,48 +108,38 @@ flowchart LR
     end
 ```
 
-### 3.2 System Clearing Accounts
+### System Clearing Accounts
 
-To preserve double-entry integrity for external capital injections and extractions (deposits and withdrawals) without integrating real banking payment gateways, LEDGERLINE maintains dedicated institutional clearing accounts seeded via Flyway:
+Deposits and withdrawals represent money entering or leaving the platform from an external source. To preserve double-entry integrity without real payment gateway integration, the system maintains two institutional clearing accounts:
 
-1. **`SYS-CLEARING-DEP` (`SYSTEM_CLEARING`):**
-   - Counterparty for customer deposits.
-   - When a customer deposits funds, the customer account is debited (increased), and `SYS-CLEARING-DEP` is credited.
-2. **`SYS-CLEARING-WDL` (`SYSTEM_CLEARING`):**
-   - Counterparty for customer withdrawals.
-   - When a customer withdraws funds, the customer account is credited (decreased), and `SYS-CLEARING-WDL` is debited.
+- **`SYS-CLEARING-DEP`:** Counterparty for all customer deposits. When a customer deposits funds, their account is debited and this clearing account is credited.
+- **`SYS-CLEARING-WDL`:** Counterparty for all customer withdrawals. When a customer withdraws, their account is credited and this clearing account is debited.
 
-### 3.3 Strict `BigDecimal` Currency Handling
+### Exact Financial Arithmetic
 
-- Financial calculations **never** use floating-point types (`float` or `double`).
-- All amounts are instantiated with `BigDecimal` with scale 2 and `RoundingMode.HALF_EVEN` (Banker's Rounding):
-  ```java
-  public static BigDecimal scaleMoney(BigDecimal amount) {
-      if (amount == null) return BigDecimal.ZERO.setScale(SCALE, RoundingMode.HALF_EVEN);
-      return amount.setScale(SCALE, RoundingMode.HALF_EVEN);
-  }
-  ```
-- Any transaction with amount $\le 0.00$ is rejected immediately with `InvalidAmountException` (400 Bad Request).
-- Negative account balances are barred at two distinct enforcement tiers:
-  1. **Domain Engine Check:** `DoubleEntryLedgerEngine.validateSufficientBalance()`.
-  2. **Database Engine Constraint:** PostgreSQL check constraint `chk_account_balance_non_negative (balance >= 0)`.
+All financial values use `BigDecimal` with scale 2 and `RoundingMode.HALF_EVEN` (Banker's Rounding). The use of `double` or `float` for monetary calculations is strictly prohibited. Amounts at or below $0.00 are rejected before any financial logic runs. Negative balances are enforced at two independent levels:
 
-### 3.4 Ledger Immutability & Rollback Guarantee
+1. The `DoubleEntryLedgerEngine` validates sufficient balance before any state change.
+2. PostgreSQL enforces `CHECK (balance >= 0)` at the database layer as a final safety net.
 
-- **Entity Immutability:** The `LedgerEntry` entity is annotated with `@org.hibernate.annotations.Immutable` and all column mappings specify `updatable = false`. Hibernate never generates `UPDATE` statements for journal entries.
-- **Repository Deletion Safeguard:** `LedgerEntryRepository` explicitly overrides all delete methods (`delete()`, `deleteById()`, `deleteAll()`, `deleteAll(Iterable)`) to throw `UnsupportedOperationException("Historical ledger records are strictly immutable and cannot be deleted")`.
-- **API Immutability:** No REST endpoints exist (`PUT`, `PATCH`, `DELETE`) for mutating or removing ledger entries; all ledger records are append-only.
-- **Atomicity & Rollback:** All operations occur within Spring `@Transactional` boundaries. If any validation fails (e.g., imbalanced entries, negative amount, insufficient funds), the entire database transaction aborts, leaving zero partial entries and unmutated account balances.
+### Ledger Immutability
+
+Historical ledger records cannot be modified or deleted once written:
+
+- The `LedgerEntry` entity is annotated `@org.hibernate.annotations.Immutable` with all column mappings marked `updatable = false`.
+- `LedgerEntryRepository` overrides all delete methods to throw `UnsupportedOperationException`.
+- No REST endpoints exist for updating or removing ledger entries.
+- If any step in a transaction fails, the Spring `@Transactional` boundary rolls back the entire unit, leaving no partial entries in the database.
 
 ---
 
-## 4. Concurrency & Deadlock Prevention Architecture
+## Concurrency and Deadlock Prevention
 
-### 4.1 Race Condition Defense: Pessimistic Row Locking
+### Pessimistic Row Locking
 
-When multiple concurrent requests attempt to withdraw or transfer funds from the same account, a standard read-modify-write cycle would allow overdrafts (double-spending).
+When multiple concurrent requests attempt to debit the same account, a standard read-then-modify cycle allows overdrafts: two threads read the same balance, both pass the validation check, and both write updates that together exceed the actual balance.
 
-LEDGERLINE enforces pessimistic write locking at the PostgreSQL engine level:
+Balance Vault prevents this using pessimistic write locks at the PostgreSQL level:
 
 ```java
 @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -162,108 +147,114 @@ LEDGERLINE enforces pessimistic write locking at the PostgreSQL engine level:
 Optional<Account> findByIdWithLock(@Param("id") Long id);
 ```
 
-This translates to PostgreSQL `SELECT ... FOR UPDATE`, blocking concurrent transactions until the current transaction commits or rolls back.
+This translates to `SELECT ... FOR UPDATE`, which blocks other transactions from reading or modifying the locked row until the current transaction commits or rolls back.
 
-### 4.2 Eliminating Circular Wait Deadlocks: Deterministic Lock Ordering
+### Deterministic Lock Ordering
 
-In bidirectional transfers (Alice transfers to Bob while Bob simultaneously transfers to Alice), concurrent transactions acquiring locks in arbitrary order create classic circular-wait deadlocks ($T_1$ holds Alice, waits for Bob; $T_2$ holds Bob, waits for Alice).
+Bidirectional transfers create a classic deadlock risk: Thread 1 (Alice → Bob) holds a lock on Alice and waits for Bob; Thread 2 (Bob → Alice) holds a lock on Bob and waits for Alice. Neither can proceed.
 
-LEDGERLINE mathematically eliminates deadlocks through **Deterministic Lock Ordering**:
+The solution is to acquire locks in a consistent, deterministic order across all transaction paths:
 
 ```java
-// Always acquire locks in ascending Primary Key ID order
 Long minId = Math.min(sourceId, destId);
 Long maxId = Math.max(sourceId, destId);
 
-Account firstLocked = accountRepository.findByIdWithLock(minId).orElseThrow(...);
+Account firstLocked  = accountRepository.findByIdWithLock(minId).orElseThrow(...);
 Account secondLocked = accountRepository.findByIdWithLock(maxId).orElseThrow(...);
-
-Account sourceAccount = sourceId.equals(minId) ? firstLocked : secondLocked;
-Account destAccount = destId.equals(minId) ? firstLocked : secondLocked;
 ```
 
-Because every thread acquires locks in strictly increasing order, circular waits are impossible:
+Because every thread always locks the lower ID first, circular waits cannot form:
 
 ```mermaid
 sequenceDiagram
-    participant T1 as Thread 1 (Alice ID 1 -> Bob ID 2)
-    participant T2 as Thread 2 (Bob ID 2 -> Alice ID 1)
-    participant DB as PostgreSQL 16 Lock Manager
+    participant T1 as Thread 1 (Alice ID 1 to Bob ID 2)
+    participant T2 as Thread 2 (Bob ID 2 to Alice ID 1)
+    participant DB as PostgreSQL Lock Manager
 
-    Note over T1,T2: Deterministic Rule: Lock min(ID1, ID2) first!
-    T1->>DB: Lock min(1, 2) -> Acquire lock on Account 1
-    T2->>DB: Lock min(1, 2) -> Request lock on Account 1
-    Note over DB,T2: Thread 2 blocks cleanly waiting for Account 1 lock
-    T1->>DB: Lock max(1, 2) -> Acquire lock on Account 2
-    T1->>DB: Commit Transfer (Alice $1000 -> $900, Bob $1000 -> $1100)
-    Note over T1,DB: Locks on 1 & 2 released
-    Note over T2,DB: Thread 2 acquires Account 1 lock, then Account 2 lock
-    T2->>DB: Commit Transfer (Bob $1100 -> $1050, Alice $900 -> $950)
-    Note over T1,T2: 0 Deadlocks. Balance Invariant ($2000 total) perfectly preserved!
+    Note over T1,T2: Rule: always lock min(ID) first
+    T1->>DB: Acquire lock on Account ID 1
+    T2->>DB: Request lock on Account ID 1 — BLOCKED
+    T1->>DB: Acquire lock on Account ID 2
+    T1->>DB: Commit transfer
+    Note over T2,DB: Thread 2 unblocked, acquires ID 1, then ID 2
+    T2->>DB: Commit transfer
+    Note over T1,T2: 0 deadlocks. Total balance preserved.
 ```
 
-### 4.3 Hibernate L1 Cache Hydration Protection
+### Hibernate Cache Protection
 
-To ensure the locked entity reflects the true, current state on disk rather than a stale entity cached earlier in the Hibernate session, LEDGERLINE resolves account IDs using a lightweight primitive scalar query:
+To ensure a pessimistic lock always reads the actual on-disk state rather than a Hibernate L1 cache entry from earlier in the session, account IDs are resolved through a lightweight scalar query before the entity is loaded:
 
 ```java
 @Query("SELECT a.id FROM Account a WHERE a.accountNumber = :accountNumber")
 Optional<Long> findIdByAccountNumber(@Param("accountNumber") String accountNumber);
 ```
 
-By querying only the primitive `Long` ID before locking, the `Account` entity is hydrated from the database for the first time **strictly under the `PESSIMISTIC_WRITE` lock**.
+The `Account` entity is then hydrated from the database for the first time strictly under the `PESSIMISTIC_WRITE` lock.
 
 ---
 
-## 5. Idempotency Protection Engine
+## Idempotency Engine
 
-To protect against duplicate transaction execution caused by network retries, connection timeouts, or accidental multi-clicks, all money-movement endpoints require an `Idempotency-Key` header (UUIDv4).
+Network retries, connection timeouts, and accidental double-clicks can submit the same money movement request more than once. The idempotency engine ensures each logical operation executes exactly once.
+
+All deposit, withdrawal, and transfer endpoints require an `Idempotency-Key` header containing a client-generated UUID.
 
 ```mermaid
 sequenceDiagram
     participant Client
     participant Service as TransactionService
     participant Hasher as SHA-256 Hasher
-    participant DB as PostgreSQL (idempotency_keys)
+    participant DB as PostgreSQL
 
-    Client->>Service: POST /transactions/transfer (Header: Idempotency-Key)
-    Service->>Hasher: Compute SHA-256(Method + URI + Normalized Payload)
-    Service->>DB: SELECT * FROM idempotency_keys WHERE idempotency_key = :key
-    alt Key Exists & Hashes Match
-        DB-->>Service: Return cached response_payload & status 200
-        Service-->>Client: 200 OK (Original Transaction Result)
-    else Key Exists & Hashes Differ
-        Service-->>Client: 409 Conflict (Key reused with different payload)
-    else Key Does Not Exist
-        Service->>DB: INSERT INTO idempotency_keys (key, hash, status=IN_PROGRESS)
-        Service->>Service: Execute Financial Operations & Double-Entry Ledger
-        Service->>DB: UPDATE idempotency_keys (status=COMPLETED, response_payload)
-        Service-->>Client: 200 OK (Executed Transaction Result)
+    Client->>Service: POST /transactions/transfer (Idempotency-Key: uuid)
+    Service->>Hasher: Hash(method + uri + normalized payload)
+    Service->>DB: Look up idempotency_key record
+
+    alt Key exists and payload hash matches
+        DB-->>Service: Return cached response
+        Service-->>Client: 200 OK (original result, no re-execution)
+    else Key exists but payload differs
+        Service-->>Client: 409 Conflict (key reused with different payload)
+    else Key not found
+        Service->>DB: Insert key record (status = IN_PROGRESS)
+        Service->>Service: Execute financial operations
+        Service->>DB: Update key record (status = COMPLETED, response saved)
+        Service-->>Client: 200 OK (freshly executed result)
     end
 ```
 
-### Key Invariants:
-1. **Uniqueness:** Guaranteed by PostgreSQL unique index `uk_idempotency_key`.
-2. **Atomic Processing:** Idempotency key creation and financial execution occur inside the same `@Transactional` boundary.
-3. **Payload Verification:** Canonical JSON payload hashing ensures identical payload verification across variations in whitespace.
-4. **Conflict Defense:** Attempting to reuse an idempotency key with different parameters returns `409 Conflict`.
+The key guarantees are:
+
+- **Uniqueness:** Enforced by a PostgreSQL unique index on `idempotency_key`.
+- **Atomicity:** Key insertion and financial execution share the same `@Transactional` boundary.
+- **Tamper detection:** A SHA-256 hash of the canonical request payload is stored alongside the key. A replay with any payload modification returns `409 Conflict`.
 
 ---
 
-## 6. Authentication & Insecure Direct Object Reference (IDOR) Defense
+## Authentication and Authorization
 
-### 6.1 Authentication Architecture
-- **Stateless JWT:** Signed using HMAC-SHA256 (`JJWT 0.12.6`). Tokens contain `userId`, `username`, and `role`.
-- **Instant Token Revocation:** Upon logout, the token's SHA-256 digest is persisted to `token_blacklist`. Every incoming request is checked against this table by `JwtAuthenticationFilter`.
-- **Password Hashing:** Passwords hashed with BCrypt. Plaintext passwords and hashes are never returned in JSON or logs.
+### JWT Authentication
 
-### 6.2 Three-Tier Role-Based Access Control (RBAC)
-- **`ADMIN`:** User management, account inspection, system health, platform overview.
-- **`CUSTOMER`:** Self-service operations strictly on accounts owned by the user.
-- **`AUDITOR`:** Read-only access to transactions, double-entry journals, and audit trails. Prohibited from mutating accounts or transferring money.
+The backend uses stateless JWT tokens signed with HMAC-SHA256 (JJWT 0.12.6). Tokens embed the user ID, username, and role, and expire after a configurable duration.
 
-### 6.3 Multi-Layer IDOR Defense (`AccountOwnershipValidator`)
-The backend never trusts customer IDs or account numbers supplied in the request body. All operations undergo domain validation:
+**Token revocation:** Upon logout, the SHA-256 hash of the token is stored in the `token_blacklist` table with its natural expiration timestamp. `JwtAuthenticationFilter` checks every incoming request against this table before processing it. Blacklisted tokens return `401 Unauthorized`.
+
+Passwords are hashed with BCrypt and are never returned in API responses or written to log files.
+
+### Role-Based Access Control
+
+Three roles are defined, each with distinct access boundaries:
+
+| Role       | Access                                                                             |
+|------------|------------------------------------------------------------------------------------|
+| `ADMIN`    | User management, account oversight, platform statistics, system health.            |
+| `CUSTOMER` | Self-service financial operations on accounts they own.                            |
+| `AUDITOR`  | Read-only access to transaction history, ledger journals, and audit logs. Cannot move funds. |
+
+### IDOR Defense
+
+The backend never trusts account identifiers or user IDs supplied by the client for ownership verification. All financial operations pass through `AccountOwnershipValidator`:
 
 ```java
 public void validateAccountWriteAccess(Account account) {
@@ -277,14 +268,15 @@ public void validateAccountWriteAccess(Account account) {
 }
 ```
 
+Ownership is verified against the authenticated user identity derived exclusively from the security context — never from request parameters.
+
 ---
 
-## 7. Append-Only Audit Trail
+## Append-Only Audit Trail
 
-To meet regulatory and compliance requirements:
-1. **Entity Immutability:** `AuditLog` is marked `@org.hibernate.annotations.Immutable`. All column definitions specify `updatable = false`.
-2. **Repository Hardening:** `AuditLogRepository` overrides all deletion methods (`delete`, `deleteAll`, `deleteById`) to throw `UnsupportedOperationException`.
-3. **Transaction Propagation Strategy:**
-   - Financial operations log audit events inside the primary transaction boundary.
-   - Authentication and security failure events log via `Propagation.REQUIRES_NEW`, ensuring audit records commit even when outer transactions abort due to security exceptions.
-4. **Auditor Exclusivity:** Audit query APIs (`GET /api/v1/audit/**`) are strictly restricted to users holding the `AUDITOR` or `ADMIN` roles.
+All security events, authentication attempts, and financial operations are recorded in the `audit_logs` table. The audit trail is designed to be tamper-resistant:
+
+1. **Entity immutability:** `AuditLog` is annotated `@org.hibernate.annotations.Immutable`. All column mappings specify `updatable = false`.
+2. **Repository hardening:** `AuditLogRepository` overrides `delete`, `deleteAll`, and `deleteById` to throw `UnsupportedOperationException`.
+3. **Transaction propagation:** Financial operation audits share the outer `@Transactional` boundary. Security and authentication failure audits use `Propagation.REQUIRES_NEW` so they commit even when the outer transaction rolls back.
+4. **Access restriction:** Audit query endpoints are restricted to `AUDITOR` and `ADMIN` roles.

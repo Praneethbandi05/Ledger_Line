@@ -1,186 +1,169 @@
-# LEDGERLINE – Money Movement With a Ledger You Can Prove
+# Balance Vault — Institutional Financial Ledger Platform
 
-[![Backend Build](https://img.shields.io/badge/Java-21-blue.svg)](https://openjdk.org/)
+[![Java](https://img.shields.io/badge/Java-21-blue.svg)](https://openjdk.org/)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3.5-brightgreen.svg)](https://spring.io/projects/spring-boot)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg)](https://www.postgresql.org/)
 [![Flyway](https://img.shields.io/badge/Flyway-10.x-red.svg)](https://flywaydb.org/)
 [![React](https://img.shields.io/badge/React-18-cyan.svg)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-5-purple.svg)](https://vitejs.dev/)
-[![Tests Passing](https://img.shields.io/badge/Tests-75%2F75%20Passing-success.svg)](#automated-testing-suite)
+[![Tests](https://img.shields.io/badge/Tests-75%2F75%20Passing-success.svg)](#automated-test-suite)
 
-**LEDGERLINE** is an institutional-grade financial transaction management application engineered for the **Snovasys 2026 Fresher Hiring Assessment**. It guarantees **absolute double-entry balance integrity**, **PostgreSQL-backed idempotency**, **deadlock-free deterministic concurrency**, **append-only audit immutability**, and **multi-layered IDOR defense**.
-
----
-
-## 1. Core System Guarantees
-
-- **Every financial transaction is authorized:** Strict Spring Security JWT validation with instantaneous token revocation via persistent token blacklist.
-- **Duplicate requests never execute twice:** PostgreSQL-backed idempotency engine requiring unique `Idempotency-Key` headers; verifies canonical SHA-256 payload digests; returns cached results on identical replay and 409 Conflict on payload tampering.
-- **Simultaneous withdrawals cannot overspend:** PostgreSQL pessimistic write row locking (`SELECT ... FOR UPDATE`) prevents concurrent overdraft race conditions.
-- **Account balances remain correct:** Strict `BigDecimal` arithmetic (scale 2, Half-Even rounding) paired with database check constraints (`chk_account_balance_non_negative`). Float and double types are prohibited.
-- **Every transaction has a balanced double-entry ledger:** Every financial movement creates balanced debit and credit entries ($\sum \text{Debits} \equiv \sum \text{Credits} \equiv \text{Transaction Amount}$) utilizing institutional system clearing accounts (`SYS-CLEARING-DEP`, `SYS-CLEARING-WDL`).
-- **Deadlock-Free Bidirectional Transfers:** Multi-account transfers acquire pessimistic locks deterministically in ascending Primary Key ID order (`min(id1, id2)` then `max(id1, id2)`), mathematically eliminating circular waits.
-- **Failed transactions roll back completely:** Atomic Spring `@Transactional` boundaries encompass the idempotency check, account balance updates, double-entry ledger entries, and audit logging.
-- **Transactions are traceable through audit records:** Append-only immutable audit trail (`audit_logs`) marked `@Immutable` at the Hibernate layer, with deletion operations disabled at the repository tier.
-- **Customers cannot access other customers' accounts:** Backend `AccountOwnershipValidator` resolves the user identity strictly from the authenticated `SecurityContext`, rejecting IDOR and privilege escalation attacks with `403 Forbidden`.
+**Balance Vault** is a full-stack institutional financial transaction platform built on a double-entry ledger model. It enforces balance integrity at the database level, prevents duplicate execution through a persistent idempotency engine, and maintains a tamper-resistant audit trail across all financial events.
 
 ---
 
-## 2. Project Architecture & Packages
+## Financial Guarantees
 
-Follows a clean layered architecture with a strict separation between domain business logic, data persistence, REST communication, and security:
+The system is designed around a core set of non-negotiable financial invariants:
+
+- **Every transaction is authorized.** Spring Security JWT authentication with server-side token revocation via a persistent blacklist table ensures no expired or logged-out token can access protected resources.
+- **No duplicate execution.** A PostgreSQL-backed idempotency engine requires a unique `Idempotency-Key` header on all money movement requests. Canonical SHA-256 payload hashes detect modified replays and return `409 Conflict`.
+- **Balances are correct under concurrency.** Pessimistic write locks (`SELECT ... FOR UPDATE`) at the database layer prevent concurrent overdraft race conditions. Exact `BigDecimal` arithmetic (scale 2, HALF_EVEN rounding) eliminates floating-point imprecision.
+- **Every transaction balances the ledger.** Each financial movement produces paired debit and credit entries through institutional clearing accounts, enforcing Σ(Debits) = Σ(Credits) = Transaction Amount before any database commit.
+- **Bidirectional transfers are deadlock-free.** Locks are acquired in ascending primary key order across all transfer paths, eliminating circular waits.
+- **Failure rolls back completely.** Spring `@Transactional` boundaries encompass the idempotency check, balance updates, ledger entries, and audit logging as a single atomic unit.
+- **Customers cannot see other customers' accounts.** An `AccountOwnershipValidator` resolves identity strictly from the authenticated security context and rejects unauthorized access with `403 Forbidden`.
+- **Audit records cannot be modified or deleted.** The `audit_logs` and `ledger_entries` tables are marked `@Immutable` at the Hibernate layer, with repository-level deletion disabled.
+
+---
+
+## Project Structure
 
 ```text
 com.ledgerline
-    ├── config        # Spring Security, CORS, Web MVC configuration
-    ├── controller    # Thin REST controllers accepting DTOs with Bean Validation
-    ├── dto           # Request/Response objects, Error representations
-    ├── entity        # JPA domain entities with DB constraints and BigDecimal types
-    ├── enums         # Roles, Transaction types, Entry types, Account types
-    ├── exception     # Centralized exception hierarchy & @RestControllerAdvice (RFC-7807)
-    ├── repository    # Spring Data JPA repositories with row-level locking
-    ├── security      # JWT tokens, authentication filters, IDOR ownership validators
-    ├── service       # Core transactional business logic (@Transactional)
-    ├── ledger        # DoubleEntryLedgerEngine enforcing debits == credits
-    ├── audit         # Append-only immutable audit trail logging
-    └── util          # Numeric scaling, canonical JSON hashing, reference generators
+    ├── config        — Spring Security, CORS, Web MVC configuration
+    ├── controller    — Thin REST controllers, Bean Validation on DTOs
+    ├── dto           — Request/Response objects, error representations
+    ├── entity        — JPA entities with database constraints
+    ├── enums         — Roles, transaction types, entry types, account types
+    ├── exception     — Centralized exception hierarchy, RFC-7807 error responses
+    ├── repository    — Spring Data JPA repositories with pessimistic locking
+    ├── security      — JWT filter, token blacklist, IDOR ownership validators
+    ├── service       — Transactional business logic
+    ├── ledger        — DoubleEntryLedgerEngine (invariant enforcement)
+    ├── audit         — Append-only immutable audit trail service
+    └── util          — BigDecimal helpers, SHA-256 hashing, reference generation
 
 frontend/src/
-    ├── assets/       # Static branding and icon resources
-    ├── components/   # Reusable UI components (Navbar, Alert, DoubleEntryBadge, TransactionModal)
-    ├── context/      # React AuthContext (JWT storage, login, register, logout)
-    ├── pages/        # CustomerDashboard, AdminDashboard, AuditorDashboard, LoginPage
-    ├── services/     # Axios API service clients (auth, accounts, transactions, admin, audit)
-    └── styles/       # Modern fintech design system (dark/light themes, tables, cards, modal)
+    ├── components/   — Shared UI components (Header, Sidebar, Alert, modals)
+    ├── context/      — React AuthContext (JWT lifecycle management)
+    ├── pages/        — Customer, Admin, and Auditor workspace pages
+    ├── services/     — Axios API clients for each domain area
+    └── styles/       — Balance Vault design system (CSS)
 ```
 
 ---
 
-## 3. Seeded Demo Accounts
+## Demo Credentials
 
-The database is pre-seeded via Flyway migrations (`V2` and `V3`) with test users across all three platform roles:
+The database is pre-seeded via Flyway migrations with the following test accounts:
 
-| Username | Password | Role | Description & Initial Accounts |
-| :--- | :--- | :--- | :--- |
-| `alice` | `Customer@123` | `CUSTOMER` | Regular customer. Initial savings account `ACC-1001-ALICE` ($1,000.00). |
-| `bob` | `Customer@123` | `CUSTOMER` | Regular customer. Initial savings account `ACC-1002-BOB` ($1,000.00). |
-| `admin` | `Admin@12345` | `ADMIN` | System administrator. User management, account inspection, platform stats. |
-| `auditor` | `Auditor@12345` | `AUDITOR` | Regulatory auditor. Read-only access to ledger journals, balance proofs, and audit logs. |
+| Username  | Password        | Role       | Notes                                              |
+|-----------|-----------------|------------|----------------------------------------------------|
+| `alice`   | `Customer@123`  | `CUSTOMER` | Savings account with $1,000.00 initial balance.    |
+| `bob`     | `Customer@123`  | `CUSTOMER` | Savings account with $1,000.00 initial balance.    |
+| `admin`   | `Admin@12345`   | `ADMIN`    | Full platform administration and user management.  |
+| `auditor` | `Auditor@12345` | `AUDITOR`  | Read-only access to ledger, audit logs, statements.|
 
-> **Note:** The UI login page features 1-click **Quick Fill** buttons to instantly populate credentials for any of these demo roles.
-
----
-
-## 4. Technology Stack
-
-- **Backend:** Java 21 LTS, Spring Boot 3.3.5, Spring Data JPA, Hibernate 6.5, Spring Security 6.3, JJWT 0.12.6, Flyway 10.x, Maven.
-- **Frontend:** React 18, Vite 5, Axios, Lucide React, Modern CSS Design System.
-- **Database:** PostgreSQL 16 (HikariCP connection pool).
-- **Testing:** JUnit 5, Mockito, Spring Boot Test, H2 (PostgreSQL compatibility mode).
+The login page includes one-click Quick Fill buttons for all four demo roles.
 
 ---
 
-## 5. Quickstart & Execution Guide
+## Technology Stack
+
+| Layer       | Technologies                                                                       |
+|-------------|------------------------------------------------------------------------------------|
+| Backend     | Java 21, Spring Boot 3.3.5, Spring Data JPA, Hibernate 6.5, Spring Security 6.3   |
+| Auth        | JJWT 0.12.6 (HMAC-SHA256), BCrypt password hashing                               |
+| Database    | PostgreSQL 16, Flyway 10 migrations, HikariCP connection pool                     |
+| Frontend    | React 18, Vite 5, Axios, Lucide React                                              |
+| Testing     | JUnit 5, Mockito, Spring Boot Test, H2 (PostgreSQL compatibility mode)             |
+
+---
+
+## Running the Application
 
 ### Prerequisites
-- Java 21+ (`JAVA_HOME` configured)
-- Node.js 18+ & npm 9+
-- PostgreSQL 16 running on port 5432 with database `ledgerline`
 
-### 5.1 Environment Configuration
-Create `.env` or set system environment variables:
+- Java 21 or later (`JAVA_HOME` set)
+- Node.js 18 or later with npm
+- PostgreSQL 16 running locally on port 5432, with a database named `ledgerline`
+
+### Environment Variables
+
+Set the following before starting the backend:
+
 ```bash
 DB_HOST=localhost
 DB_PORT=5432
 DB_NAME=ledgerline
 DB_USERNAME=postgres
 DB_PASSWORD=postgres
-DB_URL=jdbc:postgresql://localhost:5432/ledgerline
 JWT_SECRET=404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
 JWT_EXPIRATION_MS=86400000
 PORT=8080
 ```
 
-### 5.2 Running Backend Tests
-Execute the automated test suite (75 tests, 100% passing):
+### Backend
+
 ```bash
+# Run all tests (75 tests)
 ./mvnw clean test
-```
-*(On Windows: `.\mvn.cmd test` or `.\mvn.ps1 test`)*
 
-### 5.3 Building & Running Backend
-```bash
-# Package executable JAR
+# Build and run
 ./mvnw clean package -DskipTests
-
-# Run Spring Boot Application
 java -jar target/ledgerline-backend-1.0.0-SNAPSHOT.jar
 ```
-Backend will start at `http://localhost:8080`.
-*(On Windows, you can also run `.\start-backend.bat`)*
 
-### 5.4 Building & Running Frontend
+The API will be available at `http://localhost:8080`.
+
+### Frontend
+
 ```bash
 cd frontend
 npm install
-npm run build
 npm run dev
 ```
-Frontend will be available at `http://localhost:5173`.
-*(On Windows, you can also run `.\start-frontend.bat`)*
 
-### 5.5 One-Command Docker Setup
-To run the full stack (PostgreSQL + Spring Boot Backend) in Docker:
+The UI will be available at `http://localhost:5173` (or the next available port).
+
+### Docker (Full Stack)
+
 ```bash
 docker compose up --build
 ```
 
-### 5.6 Cloud Deployment Guide (Vercel & Render)
-1. **Frontend (Vercel / Netlify):**
-   - Connect repository `https://github.com/Praneethbandi05/Ledger_Line`.
-   - Root Directory: `frontend`
-   - Build Command: `npm run build`
-   - Output Directory: `dist`
-   - SPA route rewrites are pre-configured in `frontend/vercel.json` and `frontend/public/_redirects`.
-2. **Backend (Render / Railway):**
-   - New Web Service connected to repository using the included `Dockerfile`.
-   - Provision free PostgreSQL on Render/Neon/Supabase and supply environment variables `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USERNAME`, `DB_PASSWORD`.
+---
+
+## Automated Test Suite
+
+The backend includes 75 automated tests across 10 test classes, organized by functional area:
+
+| Test Suite                           | Tests | Coverage Area                                                              |
+|--------------------------------------|:-----:|----------------------------------------------------------------------------|
+| `DoubleEntryLedgerEngineTest`        |   8   | Balance equation validation, edge cases, clearing account logic.           |
+| `DoubleEntryLedgerIntegrationTest`   |   6   | Ledger invariants across deposit, withdrawal, transfer; rollback atomicity. |
+| `AuthenticationIntegrationTest`      |   7   | Registration, BCrypt hashing, JWT signing and expiry, token revocation.    |
+| `AuthorizationIntegrationTest`       |   7   | Role-based access control, IDOR defense, auditor write restrictions.       |
+| `FinancialOperationsIntegrationTest` |   8   | Deposits, withdrawals, transfers, insufficient funds handling.              |
+| `IdempotencyIntegrationTest`         |   6   | Duplicate prevention, payload tamper detection, mandatory key enforcement. |
+| `ConcurrencyStressIntegrationTest`   |   5   | 20 simultaneous transfers, 10 concurrent overdraft attempts, 0 deadlocks.  |
+| `AuditTrailIntegrationTest`          |  13   | Audit creation, immutability, IDOR on statements, credential sanitization. |
+| `HealthControllerIntegrationTest`    |   5   | Live database health probes and latency checks.                            |
+| `DatabaseHealthServiceTest`          |  10   | JDBC probes, latency thresholds, failure simulation.                       |
+| **Total**                            | **75**| **0 Failures — 0 Errors — 0 Skipped**                                     |
 
 ---
 
-## 6. Automated Testing Suite
+## Documentation
 
-The backend contains **75 comprehensive automated tests** across 10 test suites:
-
-| Test Suite | Tests | Verification Area |
-| :--- | :---: | :--- |
-| `DoubleEntryLedgerEngineTest` | 8 | Mathematical balance equation ($\sum D \equiv \sum C$), negative amounts, insufficient funds, system clearing validation. |
-| `DoubleEntryLedgerIntegrationTest` | 6 | Double-entry invariants on deposit, withdrawal, transfer; atomicity & complete rollback on failure; immutability of historical ledger records. |
-| `AuthenticationIntegrationTest` | 7 | Registration, BCrypt password hashing, JWT signing/expiry, token blacklist revocation on logout. |
-| `AuthorizationIntegrationTest` | 7 | Multi-role authorization, IDOR defense (Alice accessing Bob), Auditor financial write restriction. |
-| `FinancialOperationsIntegrationTest` | 8 | Deposits, withdrawals, transfers, account creation, clearing account integration. |
-| `IdempotencyIntegrationTest` | 6 | Replay of identical requests without duplicate execution, 409 Conflict on payload tampering, mandatory header enforcement. |
-| `ConcurrencyStressIntegrationTest` | 5 | **Multithreaded stress testing**: 10 simultaneous threads preventing overdraft; 2 simultaneous withdrawals exact race; 20 simultaneous cross-transfers with 0 deadlocks; 10 concurrent deposits with no lost updates; 10 identical simultaneous requests. |
-| `AuditTrailIntegrationTest` | 13 | Append-only audit record creation, event metadata extraction (IP/User-Agent), Hibernate `@Immutable` enforcement, failed transaction auditing (`WITHDRAWAL_FAILED`), auditor-only access, paginated/filtered audit queries, account statements with debit/credit totals, statement IDOR defense, and credential sanitization. |
-| `HealthControllerIntegrationTest` | 5 | Live PostgreSQL connection health check, latency probes, metadata inspection. |
-| `DatabaseHealthServiceTest` | 10 | Direct JDBC health probes, latency thresholds, and failure simulation. |
-| **Total** | **75** | **0 Failures, 0 Errors, 0 Skipped** |
+- [System Architecture](docs/architecture.md) — Layered design, double-entry engine, locking strategy.
+- [Database Design](docs/database-design.md) — Entity-relationship diagram, table schemas, constraints, Flyway versions.
+- [REST API Reference](docs/api-documentation.md) — All endpoints, request/response formats, status codes.
+- [Threat Model](THREATS.md) — 19 identified threat categories with mitigations and verification tests.
 
 ---
 
-## 7. Comprehensive Documentation
+## Repository
 
-Detailed architecture specifications, database schemas, threat models, and API contracts:
-
-- 🏛️ [**System Architecture & Design**](docs/architecture.md): Deep-dive into clean layered architecture, double-entry ledger engine, pessimistic row locking, and deterministic lock ordering.
-- 🗄️ [**Database Design & Schema**](docs/database-design.md): Full entity-relationship diagram, table definitions, check constraints, indexes, and Flyway migration versions.
-- 📡 [**REST API Documentation**](docs/api-documentation.md): Comprehensive catalog of all REST endpoints, request/response bodies, status codes, and security rules.
-- 🛡️ [**Threat Model & Security Verification Matrix**](THREATS.md): 19 identified threat categories (IDOR, race conditions, replay attacks, precision exploits, audit tamper resistance, credential sanitization) mapped to automated verification tests.
-- 📜 [**Prompt Engineering & Implementation Log**](PROMPTS.md): Genuine chronological records of all development phases and test execution outputs.
-
----
-
-## 8. License & Assessment Attribution
-
-Developed for the **Snovasys 2026 Fresher Hiring Assessment**.  
-Repository: [https://github.com/Praneethbandi05/Ledger_Line](https://github.com/Praneethbandi05/Ledger_Line)
+[https://github.com/Praneethbandi05/Ledger_Line](https://github.com/Praneethbandi05/Ledger_Line)

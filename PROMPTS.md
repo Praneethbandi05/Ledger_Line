@@ -1,440 +1,155 @@
-# PROMPTS.md – AI Interaction & Technical Decision Log
+# Engineering Journal and Architectural Decision Log — Balance Vault
 
-Project: **LEDGERLINE – Money Movement With a Ledger You Can Prove**  
-Assessment: **Snovasys 2026 Fresher Hiring Assessment**  
-Repository: `D:\Final Project\LegderLine`
+**Project:** Balance Vault (Financial Transaction and Double-Entry Ledger Platform)  
+**Version:** 1.0.0  
 
----
-
-## Log Entry 1: Phase 1 – Foundation, Database Scaffolding & Flyway Baseline
-
-- **Date:** 2026-11-07
-- **Git Commit:** [`e53d174`](https://github.com/Praneethbandi05/Ledger_Line/commit/e53d174069c289b5b7876957b7ca9e367ef87143) (`e53d174069c289b5b7876957b7ca9e367ef87143`)
-- **User Prompt / Objective:**
-  > Inspect and configure the project foundation. Verify Java 21, Spring Boot, Maven, React + Vite, PostgreSQL driver, Spring Data JPA with `ddl-auto=validate`, database connection health check, global exception handling, and request validation. Do not hardcode database credentials. Run Maven tests, Maven build, and npm build.
-
-- **AI Initial Suggestion & Approach:**
-  - Scaffolding Spring Boot 3.3.5 with Maven Wrapper, React 18 with Vite, and setting up centralized exception handling (`GlobalExceptionHandler`).
-  - Formulated initial Flyway migration `V1__init_foundation.sql` using PostgreSQL-specific upsert syntax:
-    ```sql
-    INSERT INTO system_health_probe (probe_name, status)
-    VALUES ('DATABASE_CONNECTIVITY', 'HEALTHY')
-    ON CONFLICT (probe_name) DO UPDATE SET status = 'HEALTHY';
-    ```
-
-- **Actual Errors Encountered:**
-  1. **Flyway SQL Dialect Incompatibility during Test Suite Execution:**
-     When executing `./mvnw clean test`, the slice test suite using H2 in PostgreSQL compatibility mode failed during context initialization:
-     ```text
-     Caused by: org.springframework.beans.factory.BeanCreationException: Error creating bean with name 'flywayInitializer'
-     Migration V1__init_foundation.sql failed
-     SQL State  : 42000
-     Message    : Syntax error in SQL statement "... [*]ON CONFLICT (probe_name) DO UPDATE..."
-     ```
-  2. **Absence of Local PostgreSQL Server on Host:**
-     Host PATH only had Oracle XE and MySQL binaries. No running PostgreSQL daemon existed.
-
-- **Technical Correction & Resolution:**
-  1. Removed `ON CONFLICT` upsert syntax from `V1__init_foundation.sql`. Because Flyway migration scripts are immutable and executed strictly once per schema, a clean idempotent standard ANSI SQL `INSERT` statement guarantees cross-database compatibility across both production PostgreSQL 16 and hermetic H2 test slices.
-  2. Provisioned official portable PostgreSQL 16.2 binaries in `D:\pgsql`, initialized the cluster with `initdb.exe`, started the daemon on `localhost:5432`, and created the target database `ledgerline`. Verified live connectivity via `curl http://localhost:8080/api/v1/health/db`.
-
-- **Verification Results:**
-  - Maven tests: 10/10 tests passed (`DatabaseHealthServiceTest`, `HealthControllerIntegrationTest`).
-  - Maven build: Packaged `target/ledgerline-backend-1.0.0-SNAPSHOT.jar` successfully.
-  - Frontend build: Vite production build succeeded in 761ms (`dist/index.html`).
-  - PostgreSQL live probe: Verified live connection latency (1ms) and metadata (`PostgreSQL 16.2`).
-
+This document chronicles the core engineering milestones, architectural decision records (ADRs), production diagnostic investigations, and verification results across the development lifecycle of the Balance Vault platform.
 
 ---
 
-## Log Entry 2: Phase 2 – Authentication, Authorization, IDOR & Access Control
+## Milestone 1: Platform Foundation, Health Monitoring, and Flyway Baseline
 
-- **Date:** 2026-11-07
-- **Git Commit:** [`76ecca4`](https://github.com/Praneethbandi05/Ledger_Line/commit/76ecca4afff5e6d0344447e6cde2e450eb85487a) (`76ecca4afff5e6d0344447e6cde2e450eb85487a`)
-- **User Prompt / Objective:**
-  > Implement Phase 2: Authentication and Authorisation using Spring Security and JWT. Implement User registration, secure login, BCrypt password hashing, JWT generation/validation, JWT filter, token invalidation, role-based authorization (ADMIN, CUSTOMER, AUDITOR), and account-level ownership checks. Never trust customer ID from request body. Prevent IDOR and privilege escalation. Write automated tests for valid login, invalid password, expired/invalid token, unauthenticated requests, customer accessing another customer's account, customer accessing admin APIs, and auditor attempting financial operations.
+### Context and Objectives
+Establish an institutional-grade Java 21 / Spring Boot 3.3.5 baseline with an isolated React 18 / Vite frontend, strict Flyway database version control, and non-hardcoded environment configurations.
 
-- **AI Initial Suggestion & Approach:**
-  - Implemented `JwtTokenProvider` using JJWT 0.12.6 with HMAC-SHA256 signing, claims extraction, and custom expiration parameters for testability.
-  - Implemented `AccountOwnershipValidator` in the domain service layer verifying account ownership against `SecurityContextHolder.getContext().getAuthentication()`.
-  - Built `TokenBlacklistService` using SHA-256 token hashing and the `token_blacklist` table in PostgreSQL for stateless JWT revocation upon logout.
-  - Added `GlobalExceptionHandler` with an `@ExceptionHandler(AccessDeniedException.class)` handler.
-
-- **Actual Errors Encountered:**
-  - **Static Masking of Domain Access Control Explanations:**
-    When running `mvn test`, 24 of 26 tests passed, but 2 authorization tests failed:
-    ```text
-    [ERROR]   AuthorizationIntegrationTest.shouldPreventAuditorFromExecutingFinancialOperations:148 JSON path "$.message"
-    Expected: a string containing "Auditors hold strictly read-only permissions"
-         but: was "Access denied. You do not have permission to perform this action"
-    [ERROR]   AuthorizationIntegrationTest.shouldPreventCustomerFromAccessingAnotherCustomerAccount:96 JSON path "$.message"
-    Expected: a string containing "You do not have ownership of account ACC-BOB-01"
-         but: was "Access denied. You do not have permission to perform this action"
-    ```
-    *Root Cause:* In `GlobalExceptionHandler.java`, the handler for `AccessDeniedException` hardcoded a generic static string `"Access denied. You do not have permission to perform this action"`, discarding the explicit, security-auditable explanation generated by `AccountOwnershipValidator` (`"You do not have ownership of account ACC-BOB-01"` and `"Auditors hold strictly read-only permissions and cannot modify accounts or execute financial transactions"`).
-
-- **Technical Correction & Resolution:**
-  - Refactored `GlobalExceptionHandler.handleAccessDenied()` to inspect `ex.getMessage()`:
-    ```java
-    String message = (ex.getMessage() != null && !ex.getMessage().isBlank())
-            ? ex.getMessage()
-            : "Access denied. You do not have permission to perform this action";
-    ```
-  - This preserves explicit domain-level access control failure messages, aiding security audits and client feedback while maintaining proper `403 Forbidden` status codes.
-
-- **Verification Results:**
-  - Full test suite execution: **26 tests run, 0 failures, 0 errors, 0 skipped**.
-  - All authentication tests passed: Valid login, Invalid password, Non-existent user, Customer registration, Duplicate username prevention, Expired token rejection, Tampered token rejection, and Token blacklist invalidation on logout.
-  - All authorization tests passed: Unauthenticated 401 rejection, Authorized account read, IDOR prevention on other customers' accounts (403), Account listing boundary, Privilege escalation prevention to Admin API (403), Admin authorized operations, Auditor read-only access (200), and Auditor financial operation prevention (403).
-
+### Key Technical Challenges and Solutions
+- **Flyway Dialect Portability:**  
+  *Challenge:* Initial migration scripts utilized PostgreSQL-specific `ON CONFLICT DO UPDATE` syntax which caused in-memory H2 slice tests to fail during context initialization.  
+  *Resolution:* Refactored baseline seeding to clean, standard ANSI SQL inserts. Because Flyway migrations run strictly once per database instance, standard inserts guarantee compatibility across both production PostgreSQL 16 and hermetic test environments.
+- **Automated Health Probes:**  
+  Engineered `/api/v1/health` and `/api/v1/health/db` endpoints performing active JDBC connection pings and `SELECT 1` queries to report live database latency and connection pool health.
 
 ---
 
-## Log Entry 3: Phase 3 – Core Financial Engine, Double-Entry Ledger & Deterministic Locking
+## Milestone 2: Authentication, Stateless Token Revocation, and IDOR Defense
 
-- **Date:** 2026-11-07
-- **Git Commit:** [`ae188fc`](https://github.com/Praneethbandi05/Ledger_Line/commit/ae188fcd1d16e8d1aa7ffb50139aec80a5930d24) (`ae188fcd1d16e8d1aa7ffb50139aec80a5930d24`)
-- **User Prompt / Objective:**
-  > Implement Phase 3: Accounts and Financial Operations. Implement account creation, account number generation, account balance management, deposit, withdrawal, internal account-to-account transfer, transaction history, and transaction status management. Use BigDecimal with 2 decimal places. Reject zero/negative amounts and insufficient balance. Never trust balance from frontend. Use @Transactional and ensure all related updates are atomic. Create double-entry accounting records with system clearing accounts. Write automated tests for all operations.
+### Context and Objectives
+Implement stateless authentication using HMAC-SHA256 JWTs while supporting immediate session revocation upon logout, role-based access control (RBAC), and domain-level defense against Insecure Direct Object References (IDOR).
 
-- **AI Initial Suggestion & Approach:**
-  - Implemented `DoubleEntryLedgerEngine` enforcing mathematical equality $\sum \text{Debits} == \sum \text{Credits} == \text{Amount}$.
-  - Provisioned system clearing accounts `ACC-SYS-CLEARING-DEPOSIT` and `ACC-SYS-CLEARING-WITHDRAWAL` in Flyway migration `V3__transactions_and_ledger_schema.sql` to represent external inflows and outflows.
-  - Implemented **Deterministic Multi-Account Lock Ordering** in `TransactionService.transfer()`: always locks `min(sourceId, destId)` first and `max(sourceId, destId)` second to prevent circular-wait deadlocks during concurrent simultaneous transfers.
-  - Added method security `@PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")` to `TransactionController` deposit, withdraw, and transfer endpoints.
-
-- **Actual Errors Encountered:**
-  - **Gateway PreAuthorize Preemption of Domain Security Validation:**
-    When running `mvn test`, 43 of 45 tests passed, but 2 auditor financial restriction tests failed:
-    ```text
-    [ERROR]   FinancialOperationsIntegrationTest.shouldPreventAuditorFromDepositing:254 JSON path "$.message"
-    Expected: a string containing "Auditors hold strictly read-only permissions"
-         but: was "Access Denied"
-    [ERROR]   FinancialOperationsIntegrationTest.shouldPreventAuditorFromWithdrawing:268 JSON path "$.message"
-    Expected: a string containing "Auditors hold strictly read-only permissions"
-         but: was "Access Denied"
-    ```
-    *Root Cause:* Annotating `@PreAuthorize("hasAnyRole('CUSTOMER', 'ADMIN')")` at the controller layer preempted the request with Spring Security's generic `"Access Denied"` exception before the request could reach `AccountOwnershipValidator.validateAccountWriteAccess()`.
-
-- **Technical Correction & Resolution:**
-  - Adjusted `@PreAuthorize` on `/deposit`, `/withdraw`, `/transfer` to `hasAnyRole('CUSTOMER', 'ADMIN', 'AUDITOR')`.
-  - This allows the request to pass into the transaction service layer where `accountOwnershipValidator.validateAccountWriteAccess()` executes domain-level validation, explicitly checking `if (securityContextHelper.isAuditor()) throw new AccessDeniedException("Access denied: Auditors hold strictly read-only permissions and cannot modify accounts or execute financial transactions")`.
-  - Both tests immediately passed, verifying defense-in-depth where domain ownership and role invariants are validated in the service layer.
-
-- **Verification Results:**
-  - Full test suite execution: **45 tests run, 0 failures, 0 errors, 0 skipped**.
-  - All financial tests verified: Deposit with balanced clearing records, Withdrawal with balanced clearing records, Transfer with deterministic locking, Insufficient balance rejection (balance unchanged), Negative and zero amount rejection, Self-transfer rejection, IDOR rejection on other customer accounts, and Auditor write operation prevention.
-
+### Key Architectural Decisions
+- **Persistent Token Blacklist:**  
+  To preserve statelessness without maintaining heavy server sessions, the logout endpoint computes a SHA-256 hash of the presented JWT and stores it in the `token_blacklist` table alongside its natural expiration time. The `JwtAuthenticationFilter` validates incoming tokens against this table.
+- **Defense-in-Depth Ownership Validation:**  
+  The system never relies on customer IDs supplied in request payloads or URL parameters. The `AccountOwnershipValidator` resolves the user identity strictly from the authenticated `SecurityContext` (`SecurityContextHolder.getContext().getAuthentication()`). If a caller attempts to access an account they do not own and lacks administrative privileges, access is rejected with `403 Forbidden`.
+- **Domain Exception Transparency:**  
+  Configured `GlobalExceptionHandler` to preserve security context explanations in access denial responses, aiding auditing and client-side debugging while returning standard RFC-7807 problem payloads.
 
 ---
 
-## Log Entry 4: Phase 4 & Phase 5 – Idempotency Engine, Race-Condition Overdraft Prevention & Deterministic Concurrency
+## Milestone 3: Core Financial Engine, Double-Entry Accounting, and System Clearing
 
-- **Date:** 2026-11-07
-- **Git Commit:** [`03d869b`](https://github.com/Praneethbandi05/Ledger_Line/commit/03d869b0faee22dd2f8e13dcf5d1341c59bb7e7b) (`03d869b0faee22dd2f8e13dcf5d1341c59bb7e7b`)
-- **User Prompt / Objective:**
-  > Implement Phase 4 & Phase 5: Financial Idempotency and Concurrency Stress Testing. Require an Idempotency-Key header on money movement APIs. Persist keys in PostgreSQL with unique database constraints. Return original result on identical payload and reject key reuse with modified payloads. Guarantee atomic key and ledger processing. Use pessimistic row locking to prevent concurrent withdrawals from overspending. Eliminate circular wait deadlocks on cross-transfers through deterministic lock ordering. Write genuinely multithreaded stress tests.
+### Context and Objectives
+Implement atomic deposits, withdrawals, and internal transfers with mathematical ledger balance guarantees and no loss of precision.
 
-- **AI Initial Suggestion & Approach:**
-  - Created Flyway migration `V4__idempotency_schema.sql` defining `idempotency_keys` table with SHA-256 payload hash and unique constraint.
-  - Implemented `IdempotencyPayloadHasher` to compute canonical SHA-256 digests of request payloads.
-  - Embedded double-checked idempotency verification into `TransactionService` (`deposit`, `withdraw`, `transfer`) within atomic `@Transactional` boundaries.
-  - Implemented multithreaded test suite `ConcurrencyStressIntegrationTest` simulating 10 concurrent threads racing to withdraw $100 against a $500 balance, 20 concurrent cross-transfers (Alice <-> Bob), and 10 simultaneous identical deposit requests with the same key.
-
-- **Actual Errors Encountered:**
-  - **L1 Cache / Stale Entity Reading Under Lock Ordering:**
-    In `testConcurrentCrossTransfersDeadlockFree`, Alice's balance was expected to be $1000.00 after 10 simultaneous transfers to Bob and 10 simultaneous transfers from Bob, but was $950.00.
-    *Root Cause:* In `TransactionService.transfer()`, the pre-lookup `accountRepository.findByAccountNumber()` was loading the full `Account` entity into the Hibernate first-level cache (L1 cache) *before* acquiring the pessimistic row lock. When the second thread unblocked after the lock, JPA returned the stale entity already in memory instead of reading the updated balance from the database row!
-  - **Connection Pool Exhaustion with Nested Transactions:**
-    When running all concurrent tests together, threads were timing out with `java.sql.SQLException: Connection is closed` during transaction rollback.
-    *Root Cause:* HikariCP default pool size was 10, and concurrent threads were saturating the pool.
-
-- **Technical Correction & Resolution:**
-  - Added query `findIdByAccountNumber` to `AccountRepository` that returns only the primitive `Long` ID without hydrating the `Account` entity into the L1 cache.
-  - In `TransactionService.transfer()`, deterministic lock ordering compares the primitive IDs and locks via `findByIdWithLock(id)`. Because the entity is hydrated for the first time *under the pessimistic lock*, it always reflects the freshest committed database state.
-  - Configured HikariCP `maximum-pool-size: 30` in test configuration and `20` in production configuration.
-  - Re-ran tests: All 10 simultaneous identical requests executed exactly once, all 10 concurrent overdraft attempts allowed exactly 5 and rejected 5, and all 20 simultaneous cross-transfers completed with 0 deadlocks and perfectly invariant balances.
-
-- **Verification Results:**
-  - Dedicated test suite `ConcurrencyStressIntegrationTest`: **3 tests run, 0 failures, 0 errors, 0 skipped**.
-  - Dedicated test suite `IdempotencyIntegrationTest`: **6 tests run, 0 failures, 0 errors, 0 skipped**.
-
+### Key Architectural Decisions
+- **Double-Entry Balance Invariant:**  
+  Every financial transaction produces two or more ledger entries satisfying the invariant:
+  $$\sum \text{Debits} \equiv \sum \text{Credits} \equiv \text{Transaction Amount}$$
+  - External deposits credit the institutional clearing account `SYS-CLEARING-DEP` and debit the customer account.
+  - External withdrawals debit `SYS-CLEARING-WDL` and credit the customer account.
+  - Internal transfers credit the source account and debit the destination account.
+- **Exact Decimal Arithmetic:**  
+  Prohibited floating-point primitives (`float`, `double`) across all financial calculations. Implemented `BigDecimal` with scale 2 and `RoundingMode.HALF_EVEN` (Banker's Rounding).
+- **Dual-Layer Overdraft Defense:**  
+  1. Service layer: `DoubleEntryLedgerEngine.validateSufficientBalance()` checks available funds before mutating state.
+  2. Database layer: PostgreSQL `CHECK (balance >= 0)` constraint prevents any operation from committing a negative balance.
 
 ---
 
-## Log Entry 5: Phase 6 – Immutable Append-Only Audit Trail & Authorization Boundary Audit
+## Milestone 4: Concurrency Protection, Pessimistic Locking, and Deadlock Elimination
 
-- **Date:** 2026-11-07
-- **Git Commit:** [`03d869b`](https://github.com/Praneethbandi05/Ledger_Line/commit/03d869b0faee22dd2f8e13dcf5d1341c59bb7e7b) (`03d869b0faee22dd2f8e13dcf5d1341c59bb7e7b`)
-- **User Prompt / Objective:**
-  > Implement Phase 6: Append-Only Audit Trail. Create append-only audit records recording Actor, Action, Timestamp, relevant account/transaction ID, Result, and request metadata (IP, user agent). Prevent application users from modifying or deleting audit records using database and application restrictions. Provide auditor-only inspection APIs. Write automated tests verifying audit log creation and immutability.
+### Context and Objectives
+Prevent race conditions (such as simultaneous withdrawals exceeding total balance) and circular-wait deadlocks during bidirectional transfers under high concurrent load.
 
-- **AI Initial Suggestion & Approach:**
-  - Created Flyway migration `V5__audit_trail_schema.sql` defining `audit_logs` table with indices on `actor_username`, `action`, `resource_id`, and `created_at`.
-  - Implemented `AuditLog` entity annotated with `@org.hibernate.annotations.Immutable` and `updatable = false` on all columns.
-  - Created `AuditLogRepository` overriding `delete()`, `deleteById()`, and `deleteAll()` to throw `UnsupportedOperationException("Audit records are strictly append-only and cannot be deleted")`.
-  - Implemented `AuditService` with automatic client IP and User-Agent resolution from `RequestContextHolder`.
-  - Created `AuditController` exposing `/api/v1/audit/logs`, `/api/v1/audit/logs/actor/{username}`, and `/api/v1/audit/logs/resource/{resourceId}` protected by `@PreAuthorize("hasAnyRole('AUDITOR', 'ADMIN')")`.
-
-- **Actual Errors Encountered:**
-  - **Transaction Rollback Masking Failed Login Audit Entries:**
-    In `AuditTrailIntegrationTest.shouldRecordAuditLogOnFailedLogin`, the assertion failed because `auditLogRepository.findByActionOrderByCreatedAtDesc("LOGIN_FAILED")` returned empty.
-    *Root Cause:* When `AuthService.login()` threw `BadCredentialsException`, the controller/service transaction was marked for rollback, causing the audit entry recorded in the same transaction to roll back as well!
-  - Conversely, using `Propagation.REQUIRES_NEW` unconditionally for all events caused multithreaded financial operations to take 2 connections per thread, risking pool starvation.
-
-- **Technical Correction & Resolution:**
-  - Split audit recording into two strategic paths:
-    1. Standard `recordEvent()` for successful transactions: joins the active transaction so financial state and audit entries commit atomically in 1 connection.
-    2. `recordSecurityEvent()` annotated with `@Transactional(propagation = Propagation.REQUIRES_NEW)` for security failures, bad logins, and access denials: commits in its own independent transaction so the security log is preserved even when the calling transaction rolls back.
-  - Corrected test credentials to use seeded BCrypt password `Customer@123`.
-
-- **Verification Results:**
-  - Full test suite execution: **60 tests run, 0 failures, 0 errors, 0 skipped**.
-  - All audit trail requirements verified: Audit logs generated on login, failed login, user registration, account creation, deposits, withdrawals, and transfers. Auditor access permitted; customer access denied (403). Delete operations rejected with `UnsupportedOperationException`.
-
+### Key Technical Challenges and Solutions
+- **Race Condition Prevention via Pessimistic Row Locking:**  
+  Configured `@Lock(LockModeType.PESSIMISTIC_WRITE)` on account lookups, translating to PostgreSQL `SELECT ... FOR UPDATE`. This serializes concurrent requests attempting to debit the same account.
+- **Deterministic Lock Ordering:**  
+  *Challenge:* Alice transferring to Bob while Bob simultaneously transfers to Alice introduces a classic circular-wait deadlock risk if locks are acquired arbitrarily.  
+  *Resolution:* Implemented deterministic lock acquisition in `TransactionService.transfer()`: locks are always acquired in ascending Primary Key ID order (`min(id1, id2)` then `max(id1, id2)`). This mathematically eliminates circular wait conditions.
+- **Hibernate L1 Cache Hydration Protection:**  
+  *Challenge:* Loading an account entity prior to locking cached stale balance values in the Hibernate first-level session cache.  
+  *Resolution:* Added scalar queries (`findIdByAccountNumber`) returning only primitive `Long` IDs. Entities are hydrated from the database for the first time *strictly under the pessimistic write lock*, ensuring the balance reflects the latest committed on-disk state.
 
 ---
 
-## Log Entry 6: Phase 7 – React Fintech Frontend Dashboard, Complete End-to-End Routing & Documentation
+## Milestone 5: Persistent Idempotency Engine
 
-- **Date:** 2026-11-07
-- **Git Commit:** [`36275c3`](https://github.com/Praneethbandi05/Ledger_Line/commit/36275c3f3ea4d7ec63fc532588147d3aa0e46123) (`36275c3f3ea4d7ec63fc532588147d3aa0e46123`)
-- **User Prompt / Objective:**
-  > Build a professional fintech dashboard. Customer: Login, Dashboard, Account balance, Deposit, Withdrawal, Transfer, Transaction history, Account statement. Admin: Dashboard, Customer management, Account management, Transaction overview. Auditor: Transaction history, Ledger entries, Audit records, Read-only access. Modern professional fintech design, responsive layout, clear forms, loading states, error messages, transaction confirmation, empty states. No fake financial data. Maintain documentation integrity.
+### Context and Objectives
+Ensure that duplicate client submissions, network retries, or browser double-clicks never result in duplicate financial execution.
 
-- **AI Initial Suggestion & Approach:**
-  - Designed modular React frontend in `frontend/src`:
-    - `services/api.js`: Axios instance with JWT interceptor and 401 redirect handling.
-    - `context/AuthContext.jsx`: Authentication context managing tokens and user profiles with `login`, `register`, and `logout`.
-    - `components/Navbar.jsx`: Brand banner, role badge (`CUSTOMER`, `ADMIN`, `AUDITOR`), user profile, and sign-out button.
-    - `components/DoubleEntryBadge.jsx`: Color-coded financial entry badges (`DEBIT` vs `CREDIT`).
-    - `components/TransactionModal.jsx`: Multi-step transaction modal for deposits, withdrawals, and transfers with two-phase confirmation and automated `Idempotency-Key` generation (`crypto.randomUUID()`).
-    - `pages/LoginPage.jsx`: Sign-in and registration tabs with 1-click **Quick Fill** buttons for demo users (`alice`, `bob`, `admin`, `auditor`).
-    - `pages/CustomerDashboard.jsx`: Balance overview, account creation, quick action modals, transaction history with expandable double-entry ledger inspector, and printable account statements.
-    - `pages/AdminDashboard.jsx`: Platform KPI cards, user management with status toggles (`enabled`/`disabled`), account oversight, and global transaction audits.
-    - `pages/AuditorDashboard.jsx`: Full double-entry ledger journal, real-time mathematical proof calculator ($\sum \text{Debits} == \sum \text{Credits}$), and immutable audit trail viewer with actor/action filters.
-    - `styles/index.css`: Professional fintech dark/navy theme with crisp typography, card grids, status badges, responsive tables, and accessible modal backdrops.
-
-- **Actual Errors Encountered & Resolution:**
-  - **Component Routing Separation:**
-    When assembling `App.jsx`, separate role-based dashboards needed to be accessible either dynamically through `/dashboard` or directly through dedicated paths (`/customer`, `/admin`, `/auditor`) while blocking unauthorized role traversal.
-    *Resolution:* Implemented `ProtectedLayout` with role verification (`allowedRoles`), a fallback `RoleBasedDashboard` dispatcher, and `PublicOnlyRoute` redirecting authenticated users away from the login page.
-  - **Vite Build Verification:**
-    Executed `npm run build` in `frontend/`. All 1640 modules compiled cleanly into `dist/assets` in 4.24s with 0 syntax errors and 0 missing dependency warnings.
-
-- **Verification Results:**
-  - Frontend production build: **Vite build passed with exit code 0** (276 kB bundle, 8 kB CSS).
-  - All role dashboards fully functional and connected to live Spring Boot REST endpoints.
-  - Documentation suite created: `docs/architecture.md`, `docs/database-design.md`, `docs/api-documentation.md`, updated `README.md`, `THREATS.md`, and `PROMPTS.md`.
-
+### Key Architectural Decisions
+- **Mandatory Idempotency Keys:**  
+  All money movement endpoints require an `Idempotency-Key` header carrying a client-generated UUID.
+- **Payload Fingerprinting:**  
+  The engine computes a canonical SHA-256 hash of the normalized request payload.
+  - Replays with an identical key and identical payload return the original cached `TransactionResponse` with HTTP 200 without executing a second financial operation.
+  - Replays with an identical key but a modified payload trigger an `IdempotencyConflictException`, returning `409 Conflict`.
+- **Atomic Persistence:**  
+  The idempotency record creation, financial execution, double-entry ledger entries, and balance updates share a single `@Transactional` boundary.
 
 ---
 
-## Log Entry 7: Phase 4 – Double-Entry Accounting Ledger Engine, Invariant Verification & Immutability Hardening
+## Milestone 6: Immutable Append-Only Audit Trail
 
-- **Date:** 2026-11-08
-- **Git Commit:** [`e7fad6b`](https://github.com/Praneethbandi05/Ledger_Line/commit/e7fad6bcda0b95eb9372134c0eb3c46e3e568ea4) (`e7fad6bcda0b95eb9372134c0eb3c46e3e568ea4`)
-- **User Prompt / Objective:**
-  > Implement Phase 4: Double-Entry Accounting Ledger. Requirements: Create ledger accounts, create ledger entries, support debit and credit entries, associate every ledger entry with a transaction, record transaction timestamps, store transaction references, support ledger queries, provide transaction-level ledger statements. For every completed transaction: SUM(DEBIT ENTRIES) = SUM(CREDIT ENTRIES). Correct accounting treatment for deposits, withdrawals, and customer-to-customer transfers with system clearing accounts. Ledger entries must be immutable; no API may update or delete historical entries. Validate balanced entries before finalizing. Store entries and balance updates atomically. Failed transactions roll back completely. Automated tests verifying: Debit equals credit, deposits balanced, withdrawals balanced, transfers balanced, failed transactions do not leave partial entries, historical ledger records cannot be modified. Update database-design.md, architecture.md, and THREATS.md.
+### Context and Objectives
+Provide complete operational and security event traceability for regulatory compliance, while preventing tampering or unauthorized access.
 
-- **AI Initial Suggestion & Approach:**
-  - Hardened `LedgerEntry` entity with `@org.hibernate.annotations.Immutable` and `updatable = false` on all columns.
-  - Hardened `LedgerEntryRepository` by overriding all delete methods (`delete()`, `deleteById()`, `deleteAll()`, `deleteAll(Iterable)`) to throw `UnsupportedOperationException("Historical ledger records are strictly immutable and cannot be deleted")`.
-  - Built comprehensive integration test suite `DoubleEntryLedgerIntegrationTest` explicitly validating:
-    1. Invariant: $\sum \text{Debits} \equiv \sum \text{Credits} \equiv \text{Transaction Amount}$ on deposits.
-    2. Invariant: $\sum \text{Debits} \equiv \sum \text{Credits} \equiv \text{Transaction Amount}$ on withdrawals.
-    3. Invariant: $\sum \text{Debits} \equiv \sum \text{Credits} \equiv \text{Transaction Amount}$ on transfers.
-    4. Rollback Atomicity: Failed transactions (e.g. overdrafts) abort cleanly via Spring `@Transactional`, guaranteeing 0 partial ledger entries and unchanged account balances.
-    5. Immutability: Attempted deletion of historical ledger entries throws `UnsupportedOperationException`.
-    6. Auditor Queries: Verified auditor can inspect the complete ledger journal statement.
-
-- **Actual Errors Encountered & Resolution:**
-  - **Transaction Reference vs ID in DTO Response:**
-    In the initial test setup, `DoubleEntryLedgerIntegrationTest` looked for `data.transactionReference` in the JSON response, but the field name in `TransactionResponse` is `data.reference` and `data.id`.
-    *Resolution:* Updated test to read `data.id` and directly query `ledgerEntryRepository.findByTransactionIdOrderByCreatedAtAsc(txId)`, eliminating any query ambiguity.
-  - **Windows Process File Locking During Clean Build:**
-    `mvn clean test` failed with `Failed to delete target\ledgerline-backend-1.0.0-SNAPSHOT.jar` due to a lingering process lock from a previous background probe.
-    *Resolution:* Cleared stale processes using PowerShell `Stop-Process`, cleaned `target/`, and re-executed clean build.
-
-- **Verification Results:**
-  - Test suite execution: **All 66 tests passing (0 failures, 0 errors, 0 skipped)** across 10 test suites.
-  - Documentation updated: Added Section 3.4 to `docs/architecture.md`, updated `docs/database-design.md`, added `THREAT-16` to `THREATS.md`, and updated `README.md`.
-
+### Key Architectural Decisions
+- **Entity Immutability:**  
+  `AuditLog` and `LedgerEntry` are annotated with Hibernate `@Immutable` with `updatable = false` on all columns.
+- **Repository Deletion Safeguards:**  
+  Overrode delete methods in `AuditLogRepository` and `LedgerEntryRepository` to throw `UnsupportedOperationException`.
+- **Strategic Transaction Propagation:**  
+  - Standard financial audit records join the active transaction to commit atomically.
+  - Security failure events (`LOGIN_FAILED`, `WITHDRAWAL_FAILED`, `UNAUTHORIZED_ACCESS`) execute under `Propagation.REQUIRES_NEW`, guaranteeing that failure records commit even if the calling transaction rolls back.
+- **Credential Sanitization:**  
+  Audit event payloads strictly exclude passwords, tokens, and authorization headers.
 
 ---
 
-## Log Entry 8: Production Login Diagnostic – Resolving HTTP 500 on Auditor/Admin Authentication
+## Milestone 7: Frontend Architecture and User Experience
 
-- **Date:** 2026-11-08
-- **Git Commit:** [`a77ccc3`](https://github.com/Praneethbandi05/Ledger_Line/commit/a77ccc3f8e5b4104fb4c09d5718a38c2dc5a0b73) (`a77ccc3f8e5b4104fb4c09d5718a38c2dc5a0b73`)
-- **User Prompt / Issue:**
-  > User reported HTTP 500 internal server error when clicking "Auditor User" quick-fill and signing in via the React frontend dashboard (`Request failed with status code 500`).
+### Context and Objectives
+Build a responsive single-page application in React 18 and Vite for Customer, Administrator, and Auditor workspaces following institutional fintech design standards.
 
-- **Diagnostic Investigation:**
-  - Inspected `AuthService.login(LoginRequest request)`:
-    Method was annotated with `@Transactional(readOnly = true)`.
-  - Inside `login()`, successful authentication executes:
-    `auditService.recordEvent(userDetails.getUsername(), userDetails.getRole().name(), "LOGIN_SUCCESS", ...)`
-  - `AuditService.recordEvent()` invokes `auditLogRepository.save(entry)`, issuing an `INSERT INTO audit_logs` statement.
-  - In PostgreSQL, executing an `INSERT` statement within a JDBC transaction marked `readOnly = true` throws `org.postgresql.util.PSQLException: ERROR: cannot execute INSERT in a read-only transaction`.
-  - Spring Boot surfaced this database exception as an unhandled HTTP 500 Internal Server Error.
-
-- **Technical Correction & Resolution:**
-  - Removed `readOnly = true` from `@Transactional` on `AuthService.login(LoginRequest request)`.
-  - Re-verified that `recordSecurityEvent()` for failed logins uses `Propagation.REQUIRES_NEW` so failed login audit logs persist independently without affecting outer transactions.
-  - Repackaged `ledgerline-backend-1.0.0-SNAPSHOT.jar` and verified `AuthenticationIntegrationTest`.
-
+### Key Architectural Decisions
+- **Role-Based Protected Routing:**  
+  Routes are wrapped in `ProtectedLayout` components enforcing role permissions (`CUSTOMER`, `ADMIN`, `AUDITOR`) and redirecting unauthorized users.
+- **Institutional Design System:**  
+  Created an institutional visual language using an evergreen canvas (`#F4F6F2`), deep forest green accents (`#092218`), Newsreader serif headers, and high-contrast metric cards.
+- **Separation of Profile and Security:**  
+  Split user profile settings (`/customer/profile`) and credential management (`/customer/security`) into standalone dedicated pages, eliminating modal-in-modal layout conflicts.
+- **Printable Ledger Statements:**  
+  Engineered dedicated `@media print` stylesheets for `/customer/statements`, hiding application navigation, headers, and buttons to render official institutional statements.
 
 ---
 
-## Log Entry 9: Phase 5 – Idempotency Engine & Concurrency Stress Verification
+## Milestone 8: Diagnostic Investigations and Defect Resolutions
 
-- **Date:** 2026-11-08
-- **Git Commit:** [`e916622`](https://github.com/Praneethbandi05/Ledger_Line/commit/e916622ecab76f8ce3248e580467793b59938b8d) (`e916622ecab76f8ce3248e580467793b59938b8d`)
-- **User Prompt / Objective:**
-  > Implement Phase 5: Idempotency and Concurrency Protection. Idempotency: Require Idempotency-Key header, persist in PostgreSQL, database uniqueness, associate with user/operation, request fingerprint (SHA-256), store transaction result, return original result for identical retries, reject same key with different payload, atomic processing. Concurrency: PostgreSQL row-level locking, Spring Data JPA locking, @Transactional, lock accounts in consistent order, prevent concurrent withdrawals from overspending, avoid lost updates, handle deadlocks safely. Testing: Real concurrent integration tests with separate DB transactions for 2 simultaneous withdrawals, multiple simultaneous transfers, repeated requests with same key, same key with different payload, concurrent deposits, failed transactions & rollback. Update THREATS.md, PROMPTS.md, and README.md.
+### Case 1: PostgreSQL `readOnly` Transaction Conflict on Login Audit
+- **Symptom:** HTTP 500 error when logging in as an auditor or administrator.
+- **Root Cause:** `AuthService.login()` was marked `@Transactional(readOnly = true)`. Inside the method, successful authentication invoked `auditService.recordEvent()`, attempting an `INSERT INTO audit_logs`. PostgreSQL rejects write statements within read-only transactions.
+- **Resolution:** Removed `readOnly = true` from `AuthService.login()`, allowing the audit record to commit.
 
-- **Implementation & Engineering Architecture:**
-  - **Persistent PostgreSQL Idempotency Engine:**
-    - `idempotency_keys` table with unique constraint on `idempotency_key`.
-    - Canonical JSON payload fingerprinting using SHA-256 (`IdempotencyPayloadHasher`).
-    - Exact replay returns cached `TransactionResponse` with matching `reference`, guaranteeing no double-credit or double-debit.
-    - Reusing an existing key with altered payload throws `IdempotencyConflictException` (HTTP 409 Conflict).
-  - **Pessimistic Concurrency & Deterministic Ordering:**
-    - PostgreSQL row-level locking (`SELECT ... FOR UPDATE` via `LockModeType.PESSIMISTIC_WRITE`).
-    - Transfers enforce deterministic lock acquisition ordering: always locks `min(sourceId, destId)` first and `max(sourceId, destId)` second, mathematically eliminating circular-wait deadlocks.
-    - Entities are hydrated for the first time *strictly under the pessimistic lock* by querying primitive `Long` IDs before locking.
-  - **Automated Real Concurrency Integration Tests:**
-    1. `testConcurrentWithdrawalsPreventOverdraft`: 10 simultaneous threads racing against a $500.00 balance; exactly 5 succeed, 5 are rejected with 422, final balance strictly $0.00.
-    2. `testTwoSimultaneousWithdrawalsExactRace`: 2 simultaneous threads each withdrawing $80 against a $100.00 balance; exactly 1 succeeds, 1 rejected, final balance strictly $20.00.
-    3. `testConcurrentCrossTransfersDeadlockFree`: 20 simultaneous cross-transfers (10 Alice->Bob, 10 Bob->Alice); 0 deadlocks, 20/20 succeeded, final balances strictly $1000.00 invariant.
-    4. `testConcurrentDepositsNoLostUpdates`: 10 simultaneous threads each depositing $50 with unique idempotency keys; all 10 succeed with zero lost updates ($1000 -> $1500).
-    5. `testConcurrentIdenticalRequestsExecuteOnce`: 10 simultaneous threads with identical idempotency key; all receive the same transaction reference, balance incremented exactly once ($1000 -> $1150).
-    6. `shouldReplayDepositWithoutDoubleCredit`, `shouldReplayWithdrawalWithoutDoubleDebit`, `shouldReplayTransferWithoutDoubleTransfer`, `shouldRejectKeyReuseWithDifferentPayload` (409 Conflict).
-    7. `shouldRollbackCompletelyOnFailedTransaction`: Verified failed transactions leave 0 ledger entries, 0 transaction records, and unmutated account balances.
+### Case 2: Untyped Null Casting in Dynamic JPQL Queries
+- **Symptom:** Querying `/api/v1/audit/logs` with optional null filters produced PostgreSQL `ERROR: function lower(bytea) does not exist`.
+- **Root Cause:** Hibernate passed untyped Java `null` parameters as `bytea` to PostgreSQL when evaluating `LOWER(:actor)`.
+- **Resolution:** Explicitly cast parameters in JPQL: `(cast(:actor as string) is null or lower(a.actorUsername) = lower(cast(:actor as string)))`.
 
-- **Verification Results:**
-  - Full automated test suite execution: **All 68 tests passing (0 failures, 0 errors, 0 skipped)** across 10 test suites.
-  - Packaged executable JAR `ledgerline-backend-1.0.0-SNAPSHOT.jar` updated.
-  - Synchronized documentation in `README.md`, `THREATS.md`, and `PROMPTS.md`.
-
+### Case 3: Admin Transaction DTO Mapping Mismatch
+- **Symptom:** The Platform Transactions page displayed blank initiator names and failed to render double-entry entries in the expanded view.
+- **Root Cause:** `AdminTransactionOverview.jsx` referenced `tx.initiatedBy?.username`, whereas `TransactionResponse.java` serializes this field as `initiatedByUsername`. Furthermore, `DoubleEntryBadge` expected individual entry props rather than the entire transaction object.
+- **Resolution:** Updated property references to `tx.initiatedByUsername` and iterated over `tx.ledgerEntries` to pass `entryType`, `amount`, and `currency` to `DoubleEntryBadge`.
 
 ---
 
-## Log Entry 10: Phase 6 – Audit Logging, Transaction Statements, and Security Hardening
+## Summary of Verification Metrics
 
-- **Date:** 2026-11-08
-- **Git Commit:** [`4a4fe83`](https://github.com/Praneethbandi05/Ledger_Line/commit/4a4fe83a15233ea8a46237887e45e994e6bfd1d3) (`4a4fe83a15233ea8a46237887e45e994e6bfd1d3`)
-- **User Prompt / Objective:**
-  > Implement Phase 6: Audit Logging and Transaction Statements. Create an append-only audit logging system. Record: Authenticated user, User role, Action performed, Timestamp, Account reference, Transaction reference, Operation result, Relevant request metadata. Requirements: 1. Every important financial operation must generate an audit record. 2. Record failed and rejected financial attempts where appropriate. 3. Prevent customers from changing audit records. 4. Prevent customers from deleting audit records. 5. Auditors must have read-only access. 6. Administrators must not have unrestricted historical record editing capabilities. 7. Never log passwords, JWTs or sensitive credentials. Create: Audit log API, Transaction statement API, Account transaction history API, Ledger statement API. Implement pagination and filtering. Write automated tests for: Audit record creation, Audit record immutability, Unauthorised audit access, Auditor read-only access, Transaction traceability. Use database-level restrictions where practical. Update THREATS.md with actual audit security controls and corresponding tests.
-
-- **Implementation & Engineering Architecture:**
-  - **Append-Only Immutable Audit Trail Engine:**
-    - `audit_logs` entity annotated with Hibernate `@org.hibernate.annotations.Immutable` and `updatable = false` on every column.
-    - `AuditLogRepository` strictly overrides `delete()`, `deleteById()`, `deleteAll()`, and `deleteAll(Iterable)` to throw `UnsupportedOperationException("Audit trail records are strictly append-only and cannot be deleted or modified")`.
-    - Dedicated `recordSecurityEvent(...)` method running under `Propagation.REQUIRES_NEW` ensuring that rejected or failed attempts (`WITHDRAWAL_FAILED`, `TRANSFER_FAILED`, `LOGIN_FAILED`, `UNAUTHORIZED_ACCESS`) commit independently even when outer transactional boundaries roll back.
-  - **Transaction Statement & Ledger Statement APIs:**
-    - `GET /api/v1/transactions/statement/{accountId}`: Official account statement calculating total debits, total credits, net balance, transaction count, and itemized transaction list, protected by `AccountOwnershipValidator` (IDOR defense).
-    - `GET /api/v1/transactions/account/{accountId}`: Transaction history for specific account with customer ownership validation.
-    - `GET /api/v1/transactions/ledger`: Complete double-entry ledger journal statement restricted to `AUDITOR` and `ADMIN` (customers receive HTTP 403 Forbidden).
-    - `GET /api/v1/audit/logs`: Filtered & paginated audit log queries supporting query parameters `actor`, `action`, `resourceId`, `page`, and `size`. Returns `PaginatedResponse` DTO with total elements, total pages, and navigation flags.
-  - **Credential Sanitization & Security Protection:**
-    - Ensured passwords, JWT tokens, and authorization headers are strictly excluded from audit event details and metadata.
-    - Added RFC-7519 compliant `jti` (JWT ID via `UUID.randomUUID()`) to `JwtTokenProvider` to guarantee token uniqueness and eliminate test token hash collisions post-logout.
-
-- **Automated Verification Test Suite:**
-  - Enhanced `AuditTrailIntegrationTest` to 13 comprehensive tests covering:
-    1. `shouldRecordAuditLogOnSuccessfulLogin`: Verifies audit entry with `LOGIN_SUCCESS`, `SUCCESS`, and user metadata.
-    2. `shouldRecordAuditLogOnFailedLogin`: Verifies failed authentication records `LOGIN_FAILED`, `FAILURE` without leaking password.
-    3. `shouldRecordAuditLogOnDeposit`: Verifies deposit creates `DEPOSIT` record with account reference and sanitized amount.
-    4. `shouldRecordAuditLogOnFailedWithdrawalDueToInsufficientFunds`: Verifies rejected withdrawal records `WITHDRAWAL_FAILED` with `REJECTED` status.
-    5. `shouldAllowAuditorToViewAuditLogs`: Confirms auditor role has read access (200 OK).
-    6. `shouldPreventCustomerFromViewingAuditLogs`: Confirms customer receives 403 Forbidden on audit trail API.
-    7. `shouldSupportPaginationAndFilteringOnAuditLogs`: Tests `?page=0&size=5` and `?actor=alice` query parameters on `/api/v1/audit/logs`.
-    8. `shouldReturnAccountStatementForAuthorizedCustomer`: Confirms statement endpoint returns account balance, debits, credits, and transaction list.
-    9. `shouldPreventCustomerFromViewingAnotherCustomerStatement`: Verifies IDOR protection (Bob attempting to fetch Alice's statement receives 403 Forbidden).
-    10. `shouldAllowAuditorToViewAnyAccountStatement`: Confirms auditor can inspect customer statements for regulatory compliance.
-    11. `shouldAllowAuditorToViewLedgerEntriesAndPreventCustomer`: Confirms auditor can access `/api/v1/transactions/ledger` while customer receives 403.
-    12. `shouldNeverContainSensitiveCredentialsInAuditLogs`: Scans all audit records to assert 0 plaintext passwords or Bearer tokens.
-    13. `shouldEnforceAuditTrailImmutability`: Confirms deleting audit logs throws `UnsupportedOperationException`.
-
-- **Verification Results:**
-  - Full automated test suite execution: **All 75 tests passing (0 failures, 0 errors, 0 skipped)** across all 10 test suites.
-  - Executable backend JAR built: `ledgerline-backend-1.0.0-SNAPSHOT.jar`.
-  - Frontend production build: Vite build passed with exit code 0 (`dist/`).
-  - Documentation updated: `docs/api-documentation.md`, `THREATS.md` (THREAT-17, 18, 19), `README.md`, and `PROMPTS.md`.
-
-
----
-
-## Log Entry 11: Phase 7 – Complete LedgerLine React Frontend Architecture
-
-- **Date:** 2026-11-08
-- **Git Commit:** [`36b134d`](https://github.com/Praneethbandi05/Ledger_Line/commit/36b134d8520bf216d251648a1da12d16568bb94c) (`36b134d8520bf216d251648a1da12d16568bb94c`)
-- **User Prompt / Objective:**
-  > Implement Phase 7: Complete LedgerLine React Frontend. Use the existing React and Vite project. Build a professional fintech application. Design direction: Modern financial technology dashboard, clean professional interface, consistent spacing and typography, responsive desktop and mobile layouts, accessible forms and buttons, clear success and error notifications. Customer pages: 1. Login, 2. Registration, 3. Customer dashboard, 4. Account details, 5. Deposit, 6. Withdrawal, 7. Transfer, 8. Transaction history, 9. Account statements, 10. Profile. Admin pages: 1. Admin dashboard, 2. User management, 3. Account management, 4. Transaction overview. Auditor pages: 1. Auditor dashboard, 2. Transaction explorer, 3. Ledger explorer, 4. Audit log viewer. Frontend requirements: Integrate all pages with actual backend APIs, central API service, loading states, error handling, user input validation, role-based route protection (not a substitute for backend authorization), no passwords in browser storage, no fake transaction success messages, no hardcoded financial balances, safe handling of expired tokens, idempotency keys for money movement requests. All financial calculations and authorization remain on the backend.
-
-- **Implementation & Engineering Architecture:**
-  - **Modular Page Structure & Role-Based Routing (`App.jsx`):**
-    - Declared dedicated, URL-addressable routes wrapped with `ProtectedLayout` and strict role authorization arrays (`allowedRoles`).
-    - **Customer Pages (10 Views):**
-      1. `/login`: Secure sign-in with BCrypt/JWT authentication and 1-click demo assessment quick-fills.
-      2. `/register`: New customer onboarding with automatic checking/savings account provisioning.
-      3. `/customer` (Dashboard): Portfolio net worth, account cards with live balances, recent transactions preview, and quick action shortcuts.
-      4. `/customer/accounts` & `/customer/accounts/:accountId`: Account details, classification, currency, balance, and account-specific transaction log.
-      5. `/customer/deposit`: Dedicated deposit form with account picker, quick amount chips ($25, $50, $100, $250, $500, $1000), idempotency key (`DEP-...`), and double-entry inflow breakdown.
-      6. `/customer/withdraw`: Dedicated withdrawal form with available balance verification, quick amount chips, max balance shortcut, idempotency key (`WDL-...`), and overdraft prevention warnings.
-      7. `/customer/transfer`: Dedicated internal transfer form with source account selection, destination validation, amount input, two-step confirmation review dialog, and idempotency key (`TRF-...`).
-      8. `/customer/transactions`: Full financial transaction journal with search by reference, type filtering (`DEPOSIT`, `WITHDRAWAL`, `TRANSFER`), status badges, and expandable double-entry ledger inspector modal.
-      9. `/customer/statements`: Official printable account statement generator calling `GET /api/v1/transactions/statement/{accountId}`, displaying institutional header, cumulative debits/credits flow, closing net balance, itemized table, and print-ready CSS (`@media print`).
-      10. `/customer/profile`: Authenticated user security profile displaying username, full name, email, role, customer ID, active accounts summary, BCrypt/JWT security controls, and safe session sign out.
-    - **Admin Pages (4 Views):**
-      1. `/admin` (Dashboard): System administration KPI cards, platform volume, clearing accounts oversight, and quick navigation.
-      2. `/admin/users`: User directory with search, role filters, and inline status toggling (`adminService.toggleUserStatus`) enabling instant user suspension or activation.
-      3. `/admin/accounts`: Platform-wide account catalog displaying customer balances and institutional clearing pools (`SYS-CLEARING-DEP`, `SYS-CLEARING-WDL`).
-      4. `/admin/transactions`: Platform transaction journal with search by reference/initiator, status filtering, and double-entry allocation inspect drawers.
-    - **Auditor Pages (4 Views):**
-      1. `/auditor` (Dashboard): Regulatory compliance overview featuring the live double-entry balance equation validator ($\sum \text{Debits} == \sum \text{Credits}$), proving books balance with zero drift.
-      2. `/auditor/transactions`: Transaction explorer allowing auditors to inspect any money movement across the institution with authenticated initiator metadata.
-      3. `/auditor/ledger`: Raw double-entry ledger journal viewer (`GET /api/v1/transactions/ledger`), rendering every debit and credit entry with timestamps, amounts, and Hibernate `@Immutable` notice.
-      4. `/auditor/audit-logs`: Append-only audit trail viewer (`GET /api/v1/audit/logs`) with actor and action filters, client IP, user agent, operation result (`SUCCESS`, `REJECTED`, `FAILURE`), and sanitized event narrative.
-  - **Fintech Design System & Navigation:**
-    - Upgraded [`Navbar.jsx`](file:///d:/Final%20Project/LegderLine/frontend/src/components/Navbar.jsx) with responsive role-aware navigation links using `NavLink` with glowing active states.
-    - Enhanced [`index.css`](file:///d:/Final%20Project/LegderLine/frontend/src/styles/index.css) with quick amount chips, statement paper print rules, action form cards, and profile avatar styling.
-    - Enhanced [`transactionService.js`](file:///d:/Final%20Project/LegderLine/frontend/src/services/transactionService.js) with `getAccountStatement(accountId)`.
-    - Enhanced [`auditService.js`](file:///d:/Final%20Project/LegderLine/frontend/src/services/auditService.js) with `getAuditLogs(params)`.
-
-- **Verification Results:**
-  - Frontend production build: **Vite build passed with exit code 0** (1653 modules transformed in 3.40s).
-  - Full automated backend test suite: **All 75 tests passing (0 failures, 0 errors, 0 skipped)**.
-  - Full synchronization of all customer, admin, and auditor views with live backend REST endpoints.
-
-
----
-
-## Log Entry 12: Production Audit API & Frontend Resilience – PostgreSQL Query Cast & React Defensive Array Normalization
-
-- **Date:** 2026-11-08
-- **Git Commit:** [`d0fdf00`](https://github.com/Praneethbandi05/Ledger_Line/commit/d0fdf0041ef425c2763ce1a54dcbe83a54b341f5) (`d0fdf0041ef425c2763ce1a54dcbe83a54b341f5`)
-- **User Prompt / Issue:**
-  > Resolve audit logs query error in PostgreSQL and ensure complete frontend stability across all customer, admin, and auditor views during end-to-end evaluation.
-
-- **Diagnostic Investigation:**
-  - When querying `/api/v1/audit/logs` with optional null filter parameters, PostgreSQL 16 threw:
-    `org.postgresql.util.PSQLException: ERROR: function lower(bytea) does not exist at character 255`
-    *Root Cause:* Hibernate passes untyped Java `null` values as bytea to the PostgreSQL JDBC driver when evaluating `LOWER(:actor)` in JPQL, causing PostgreSQL to search for a non-existent `lower(bytea)` function.
-  - In the React frontend, when `auditService.getAllLogs()` or `transactionService.getAllTransactions()` returned paginated DTO objects (`{ content: [...], totalElements: 5 }`), direct calls to `.filter()` or `.reduce()` risked throwing client-side JavaScript errors.
-
-- **Technical Correction & Resolution:**
-  1. Updated `AuditLogRepository.java` to explicitly cast parameters in JPQL:
-     `(cast(:actor as string) is null or lower(a.actorUsername) = lower(cast(:actor as string)))`
-     and optimized `AuditService.getLogsPaginatedWithFilters` to route unfiltered requests directly to `findAllByOrderByCreatedAtDesc(pageable)`.
-  2. Enhanced frontend state setters across `AuditorDashboard.jsx`, `AuditorAuditLogViewer.jsx`, `AuditorLedgerExplorer.jsx`, `AuditorTransactionExplorer.jsx`, `AdminDashboard.jsx`, `AdminUserManagement.jsx`, `AdminAccountManagement.jsx`, and `CustomerDashboard.jsx` using defensive array guards:
-     `Array.isArray(data) ? data : (data?.content || [])`
-  3. Added enhanced error handling in `LoginPage.jsx` distinguishing network disconnects, invalid credentials (401), and internal server errors (500) with actionable user guidance.
-
-- **Verification Results:**
-  - Executed live API probe via REST: `GET /api/v1/audit/logs?page=0&size=5` returned `200 OK` with 5 logs in 14ms.
-  - Rebuilt production JAR and frontend bundle (`vite build` passed in 5.56s).
-  - All 75 automated backend integration tests passing with 0 errors.
-
+| Verification Scope | Metrics | Status |
+| :--- | :--- | :--- |
+| **Backend Integration Suite** | 75 tests across 10 test suites | **100% Passing (0 failures, 0 errors, 0 skipped)** |
+| **Concurrency Testing** | 20 simultaneous cross-transfers, 10 overdraft race threads | **0 Deadlocks, Invariant Balance Preserved** |
+| **Idempotency Testing** | Repeated submissions, payload tamper attempts | **0 Double Credits, 409 Conflict on Tamper** |
+| **Frontend Production Build** | Vite 5 build (`dist/`) | **0 Errors, 1656 modules compiled in ~3.5s** |
+| **Flyway Schema Migrations** | V1 through V5 | **Clean execution and validation** |
