@@ -1,0 +1,16 @@
+spring:
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+
+logging:
+  level:
+    root: INFO
+    com.ledgerline: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN

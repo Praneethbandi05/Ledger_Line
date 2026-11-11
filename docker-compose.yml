@@ -4,6 +4,7 @@ services:
   postgres:
     image: postgres:16-alpine
     container_name: ledgerline-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ledgerline
       POSTGRES_USER: postgres
@@ -23,6 +24,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: ledgerline-backend
+    restart: unless-stopped
     depends_on:
       postgres:
         condition: service_healthy
@@ -33,8 +35,19 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgrespassword
       SPRING_PROFILES_ACTIVE: prod
-      JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-      JWT_EXPIRATION_MS: 86400000
+      JWT_SECRET: ${JWT_SECRET:-404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+      JWT_EXPIRATION_MS: ${JWT_EXPIRATION_MS:-86400000}
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ledgerline-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:80"
 
 volumes:
   pgdata:

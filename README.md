@@ -81,57 +81,184 @@ The login page includes one-click Quick Fill buttons for all four demo roles.
 
 ---
 
-## Running the Application
+## Running and Deployment
 
 ### Prerequisites
 
 - Java 21 or later (`JAVA_HOME` set)
 - Node.js 18 or later with npm
-- PostgreSQL 16 running locally on port 5432, with a database named `ledgerline`
+- PostgreSQL 16 running on port 5432 with database `ledgerline` (or Docker engine)
 
-### Environment Variables
+---
 
-Set the following before starting the backend:
+### Local Development Setup
 
+#### 1. Database
+Ensure PostgreSQL is running and a clean database named `ledgerline` exists:
 ```bash
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=ledgerline
-DB_USERNAME=postgres
-DB_PASSWORD=postgres
-JWT_SECRET=404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
-JWT_EXPIRATION_MS=86400000
-PORT=8080
+# Using local PostgreSQL psql CLI
+psql -U postgres -c "CREATE DATABASE ledgerline;"
 ```
+*(Flyway migrations automatically run on backend boot to create all tables, indexes, and initial clearing accounts).*
 
-### Backend
-
+#### 2. Backend
+Launch using the Maven wrapper or helper script:
 ```bash
-# Run all tests (75 tests)
+# Run test suite (75 automated integration tests)
 ./mvnw clean test
 
-# Build and run
+# Build and run the Spring Boot service
 ./mvnw clean package -DskipTests
 java -jar target/ledgerline-backend-1.0.0-SNAPSHOT.jar
 ```
+*Windows one-click launcher:* Double-click `run-backend.bat` or execute `.\run-backend.ps1`.  
+The backend starts at `http://localhost:8080`.
 
-The API will be available at `http://localhost:8080`.
-
-### Frontend
-
+#### 3. Frontend
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
+*Windows one-click launcher:* Double-click `run-frontend.bat` or execute `.\run-frontend.ps1`.  
+The UI opens at `http://localhost:5173` with automatic API proxying to `http://localhost:8080`.
 
-The UI will be available at `http://localhost:5173` (or the next available port).
+---
 
-### Docker (Full Stack)
+### Production Deployment Options
+
+#### Option A: Full-Stack Docker Compose (Recommended for Containerized Environments)
+The repository includes a multi-service `docker-compose.yml` that provisions PostgreSQL 16, compiles and runs the Spring Boot JAR with Temurin 21 JRE, and builds the React application served via Nginx with automated reverse proxying:
 
 ```bash
-docker compose up --build
+# Build and launch all three services in detached mode
+docker compose up --build -d
+
+# Check live service status and health probes
+docker compose ps
+
+# View real-time logs
+docker compose logs -f backend
 ```
+
+- **Frontend:** `http://localhost:3000` (Nginx serving SPA and proxying `/api` calls)
+- **Backend API:** `http://localhost:8080`
+- **PostgreSQL Database:** `localhost:5432`
+
+To shut down:
+```bash
+docker compose down
+```
+
+---
+
+#### Option B: Split Cloud Deployment (Railway / Render + Vercel / Netlify)
+
+##### Backend Service (Railway / Render / AWS ECS / Fly.io):
+1. **Source:** Connect your GitHub repository.
+2. **Build Type:** Dockerfile (uses root `Dockerfile`) or Native Java 21 Maven.
+3. **Environment Variables:**
+   - `SPRING_DATASOURCE_URL`: Managed PostgreSQL connection string (`jdbc:postgresql://<host>:<port>/<dbname>`).
+   - `SPRING_DATASOURCE_USERNAME`: Database username.
+   - `SPRING_DATASOURCE_PASSWORD`: Database password.
+   - `SPRING_PROFILES_ACTIVE`: `prod`
+   - `JWT_SECRET`: 256-bit secret key (generate with `openssl rand -hex 32`).
+   - `JWT_EXPIRATION_MS`: `86400000` (24 hours).
+   - `PORT`: `8080` (or injected by platform `$PORT`).
+4. **Health Check Path:** `/api/v1/health`
+
+##### Frontend Client (Vercel / Netlify):
+1. **Source:** Connect GitHub repository.
+2. **Root Directory:** Set to `frontend`.
+3. **Build Command:** `npm run build`
+4. **Output Directory:** `dist`
+5. **Environment Variable:**
+   - `VITE_API_URL`: Full URL of deployed backend, e.g. `https://api.ledgerline.yourdomain.com/api/v1`
+6. **SPA Routing:** `vercel.json` and `public/_redirects` are already committed to route all paths to `/index.html`.
+
+---
+
+#### Option C: Traditional Linux VM / Host (Ubuntu / Debian / Systemd)
+
+##### 1. Production JAR Compilation:
+```bash
+./mvnw clean package -DskipTests
+sudo cp target/ledgerline-backend-1.0.0-SNAPSHOT.jar /opt/ledgerline/app.jar
+```
+
+##### 2. Systemd Service (`/etc/systemd/system/ledgerline.service`):
+```ini
+[Unit]
+Description=Balance Vault Financial Ledger Backend
+After=network.target postgresql.service
+
+[Service]
+User=ledgerline
+WorkingDirectory=/opt/ledgerline
+ExecStart=/usr/bin/java -Xms512m -Xmx1024m -jar /opt/ledgerline/app.jar
+Restart=always
+RestartSec=10
+Environment="SPRING_PROFILES_ACTIVE=prod"
+Environment="DB_URL=jdbc:postgresql://localhost:5432/ledgerline"
+Environment="DB_USERNAME=postgres"
+Environment="DB_PASSWORD=your_production_password"
+Environment="JWT_SECRET=your_generated_256_bit_secret"
+
+[Install]
+WantedBy=multi-user.target
+```
+Enable and start the service:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now ledgerline.service
+```
+
+##### 3. Nginx Reverse Proxy with SSL (`/etc/nginx/sites-available/ledgerline`):
+```nginx
+server {
+    listen 80;
+    server_name ledgerline.yourdomain.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name ledgerline.yourdomain.com;
+
+    ssl_certificate /etc/letsencrypt/live/ledgerline.yourdomain.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/ledgerline.yourdomain.com/privkey.pem;
+
+    # Frontend Static Files
+    location / {
+        root /var/www/ledgerline-frontend/dist;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Backend API Proxy
+    location /api/ {
+        proxy_pass http://127.0.0.1:8080/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+---
+
+### Pre-Deployment Security & Verification Checklist
+
+- [ ] **Cryptographic Secret:** Replaced demo `JWT_SECRET` with a freshly generated 256-bit hexadecimal string (`openssl rand -hex 32`).
+- [ ] **Database Credentials:** Default PostgreSQL `postgres` / `postgrespassword` replaced with least-privilege production credentials.
+- [ ] **Flyway Migration Audit:** Run `./mvnw flyway:info` or inspect `flyway_schema_history` table to confirm all migrations (V1 through V5) applied successfully.
+- [ ] **Health Endpoint Verification:** Query `GET /api/v1/health` to confirm active database connectivity and low latency response.
+- [ ] **CORS Origins:** Verified that `allowedOriginPatterns` matches production frontend domain.
+- [ ] **Automated Backups:** Scheduled automated PostgreSQL backups using WAL-G, AWS RDS automated snapshots, or periodic `pg_dump`:
+  ```bash
+  pg_dump -U postgres -d ledgerline -Fc -f "/backups/ledgerline_$(date +%Y%m%d_%H%M%S).dump"
+  ```
 
 ---
 
