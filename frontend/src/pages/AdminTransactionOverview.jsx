@@ -47,9 +47,9 @@ export const AdminTransactionOverview = () => {
       !searchQuery ||
       tx.reference?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       tx.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tx.initiatedBy?.username?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tx.sourceAccount?.accountNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tx.destinationAccount?.accountNumber?.toLowerCase().includes(searchQuery.toLowerCase());
+      tx.initiatedByUsername?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tx.sourceAccountNumber?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tx.destinationAccountNumber?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesType = typeFilter === 'ALL' || tx.transactionType === typeFilter;
     const matchesStatus = statusFilter === 'ALL' || tx.status === statusFilter;
@@ -214,7 +214,7 @@ export const AdminTransactionOverview = () => {
                       {tx.reference}
                     </td>
                     <td style={{ fontSize: '0.8125rem' }}>
-                      <span style={{ fontWeight: 600 }}>{tx.initiatedBy?.username || 'system'}</span>
+                      <span style={{ fontWeight: 600 }}>{tx.initiatedByUsername || 'system'}</span>
                     </td>
                     <td>
                       <span
@@ -253,7 +253,25 @@ export const AdminTransactionOverview = () => {
                   {expandedTxId === tx.id && (
                     <tr>
                       <td colSpan={8} style={{ backgroundColor: '#F8FAF8', padding: '1.25rem 1.5rem' }}>
-                        <DoubleEntryBadge transaction={tx} />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#5E7A6B', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.25rem' }}>
+                            Double-Entry Ledger Entries
+                          </div>
+                          {tx.ledgerEntries && tx.ledgerEntries.length > 0 ? (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                              {tx.ledgerEntries.map((entry, i) => (
+                                <DoubleEntryBadge key={i} entryType={entry.entryType} amount={entry.amount} currency={entry.currency || tx.currency || 'USD'} />
+                              ))}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: '0.8125rem', color: '#688073' }}>
+                              <span>Accounts: </span>
+                              {tx.sourceAccountNumber && <span style={{ fontFamily: 'monospace', marginRight: '0.75rem' }}>From: <strong>{tx.sourceAccountNumber}</strong></span>}
+                              {tx.destinationAccountNumber && <span style={{ fontFamily: 'monospace' }}>To: <strong>{tx.destinationAccountNumber}</strong></span>}
+                              {!tx.sourceAccountNumber && !tx.destinationAccountNumber && <span>No ledger entries available.</span>}
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )}
