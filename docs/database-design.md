@@ -47,29 +47,28 @@ erDiagram
 
     TRANSACTIONS {
         bigint id PK
-        varchar transaction_reference UK
-        varchar idempotency_key
+        varchar reference UK
         varchar transaction_type
         varchar status
         numeric amount "CHECK (amount > 0)"
         varchar currency
         bigint source_account_id FK
         bigint destination_account_id FK
-        bigint initiated_by FK
+        bigint initiated_by_user_id FK
         varchar description
         timestamp created_at
-        timestamp completed_at
+        timestamp updated_at
     }
 
     LEDGER_ENTRIES {
         bigint id PK
-        varchar entry_reference UK
         bigint transaction_id FK
         bigint account_id FK
         varchar entry_type "DEBIT or CREDIT"
         numeric amount "CHECK (amount > 0)"
         varchar currency
         numeric balance_after "CHECK (balance_after >= 0)"
+        varchar description
         timestamp created_at
     }
 
@@ -156,25 +155,24 @@ Records high-level financial transaction requests and execution status.
 | Column | Type | Constraints | Description |
 | :--- | :--- | :--- | :--- |
 | `id` | `BIGSERIAL` | `PRIMARY KEY` | Internal transaction ID. |
-| `transaction_reference` | `VARCHAR(64)` | `NOT NULL, UNIQUE` | Immutable transaction reference number. |
-| `idempotency_key` | `VARCHAR(64)` | `NOT NULL` | Client-provided UUID to guarantee exactly-once processing. |
-| `transaction_type` | `VARCHAR(20)` | `NOT NULL` | Action classification: `DEPOSIT`, `WITHDRAWAL`, or `TRANSFER`. |
-| `status` | `VARCHAR(20)` | `NOT NULL` | Processing state: `COMPLETED`, `PENDING`, or `FAILED`. |
-| `amount` | `NUMERIC(19, 2)` | `NOT NULL, CHECK (amount > 0)` | Transaction face value; non-positive values rejected. |
-| `currency` | `VARCHAR(3)` | `NOT NULL DEFAULT 'USD'` | ISO 4217 currency code. |
+| `reference` | `VARCHAR(64)` | `NOT NULL, UNIQUE` | Immutable unique transaction reference (e.g. `TRF-...`, `DEP-...`). |
 | `source_account_id` | `BIGINT` | `REFERENCES accounts(id)` | Debited account (`NULL` for external deposits). |
 | `destination_account_id` | `BIGINT` | `REFERENCES accounts(id)` | Credited account (`NULL` for external withdrawals). |
-| `initiated_by` | `BIGINT` | `REFERENCES users(id)` | Authenticated user who submitted the request. |
+| `amount` | `NUMERIC(19, 2)` | `NOT NULL, CHECK (amount > 0)` | Transaction face value; non-positive values rejected. |
+| `currency` | `VARCHAR(3)` | `NOT NULL DEFAULT 'USD'` | ISO 4217 currency code. |
+| `transaction_type` | `VARCHAR(20)` | `NOT NULL` | Action classification: `DEPOSIT`, `WITHDRAWAL`, or `TRANSFER`. |
+| `status` | `VARCHAR(20)` | `NOT NULL DEFAULT 'PENDING'` | Processing state: `COMPLETED`, `PENDING`, or `FAILED`. |
 | `description` | `VARCHAR(255)` | | Human-readable transfer purpose or memo. |
+| `initiated_by_user_id` | `BIGINT` | `NOT NULL, REFERENCES users(id)` | Authenticated user who submitted the request. |
 | `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL DEFAULT CURRENT_TIMESTAMP` | Submission timestamp. |
-| `completed_at` | `TIMESTAMP WITH TIME ZONE` | | Finalization and commitment timestamp. |
+| `updated_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL DEFAULT CURRENT_TIMESTAMP` | Finalization timestamp. |
 
 **Indexes:**
-- `idx_transactions_ref` on `transactions(transaction_reference)`
-- `idx_transactions_source` on `transactions(source_account_id)`
-- `idx_transactions_dest` on `transactions(destination_account_id)`
-- `idx_transactions_user` on `transactions(initiated_by)`
-- `idx_transactions_created` on `transactions(created_at DESC)`
+- `idx_transactions_reference` on `transactions(reference)`
+- `idx_transactions_source_account` on `transactions(source_account_id)`
+- `idx_transactions_destination_account` on `transactions(destination_account_id)`
+- `idx_transactions_status` on `transactions(status)`
+- `idx_transactions_created_at` on `transactions(created_at DESC)`
 
 ---
 
@@ -184,12 +182,12 @@ The balanced double-entry accounting journal. Every transaction produces two or 
 | Column | Type | Constraints | Description |
 | :--- | :--- | :--- | :--- |
 | `id` | `BIGSERIAL` | `PRIMARY KEY` | Ledger entry identifier. |
-| `entry_reference` | `VARCHAR(64)` | `NOT NULL, UNIQUE` | Unique journal line reference code. |
 | `transaction_id` | `BIGINT` | `NOT NULL, REFERENCES transactions(id)` | Associated transaction record. |
 | `account_id` | `BIGINT` | `NOT NULL, REFERENCES accounts(id)` | Affected account. |
 | `entry_type` | `VARCHAR(10)` | `NOT NULL, CHECK (entry_type IN ('DEBIT', 'CREDIT'))` | Entry direction. |
 | `amount` | `NUMERIC(19, 2)` | `NOT NULL, CHECK (amount > 0)` | Entry monetary amount. |
 | `currency` | `VARCHAR(3)` | `NOT NULL DEFAULT 'USD'` | ISO currency code. |
+| `description` | `VARCHAR(255)` | | Entry description or memo. |
 | `balance_after` | `NUMERIC(19, 2)` | `NOT NULL, CHECK (balance_after >= 0)` | Account balance immediately following this entry. |
 | `created_at` | `TIMESTAMP WITH TIME ZONE` | `NOT NULL DEFAULT CURRENT_TIMESTAMP` | Ledger timestamp. |
 
@@ -199,9 +197,9 @@ The balanced double-entry accounting journal. Every transaction produces two or 
 - No update or delete endpoints exist in the application layer.
 
 **Indexes:**
-- `idx_ledger_entries_tx` on `ledger_entries(transaction_id)`
+- `idx_ledger_entries_transaction` on `ledger_entries(transaction_id)`
 - `idx_ledger_entries_account` on `ledger_entries(account_id)`
-- `idx_ledger_entries_created` on `ledger_entries(created_at DESC)`
+- `idx_ledger_entries_created_at` on `ledger_entries(created_at DESC)`
 
 ---
 
