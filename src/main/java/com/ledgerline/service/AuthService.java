@@ -102,7 +102,8 @@ public class AuthService {
                 savedUser.getUsername(),
                 savedUser.getEmail(),
                 savedUser.getFullName(),
-                savedUser.getRole()
+                savedUser.getRole(),
+                savedUser.isEnabled()
         );
 
         return new AuthResponse(token, jwtTokenProvider.getExpirationMs(), profile);
@@ -123,7 +124,8 @@ public class AuthService {
                     userDetails.getUsername(),
                     userDetails.getEmail(),
                     userDetails.getFullName(),
-                    userDetails.getRole()
+                    userDetails.getRole(),
+                    userDetails.isEnabled()
             );
 
             log.info("User {} successfully authenticated with role {}", userDetails.getUsername(), userDetails.getRole());
@@ -174,7 +176,8 @@ public class AuthService {
                 user.getUsername(),
                 user.getEmail(),
                 user.getFullName(),
-                user.getRole()
+                user.getRole(),
+                user.isEnabled()
         );
     }
 
@@ -216,7 +219,8 @@ public class AuthService {
                 saved.getUsername(),
                 saved.getEmail(),
                 saved.getFullName(),
-                saved.getRole()
+                saved.getRole(),
+                saved.isEnabled()
         );
     }
 

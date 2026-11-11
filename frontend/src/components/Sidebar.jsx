@@ -15,22 +15,42 @@ import {
   ArrowDownLeft,
   ArrowUpRight,
   ArrowLeftRight,
-  UserCheck
+  X
 } from 'lucide-react';
 
-export const Sidebar = () => {
+export const Sidebar = ({ mobileOpen, onCloseMobile }) => {
   const { role } = useAuth();
   const [requestModalOpen, setRequestModalOpen] = useState(false);
 
+  const handleNavClick = () => {
+    if (onCloseMobile) {
+      onCloseMobile();
+    }
+  };
+
   return (
     <>
-      <aside className="bv-sidebar">
+      <aside className={`bv-sidebar ${mobileOpen ? 'mobile-open' : ''}`}>
         {/* Brand Header */}
-        <div className="bv-sidebar-brand">
-          <div className="bv-brand-icon">
-            <span>b</span>
+        <div className="bv-sidebar-brand" style={{ justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+            <div className="bv-brand-icon">
+              <span>b</span>
+            </div>
+            <span className="bv-brand-text">Balance Vault</span>
           </div>
-          <span className="bv-brand-text">Balance Vault</span>
+
+          {/* Close button visible only on mobile drawer */}
+          {onCloseMobile && (
+            <button
+              type="button"
+              className="bv-mobile-close-btn"
+              onClick={onCloseMobile}
+              aria-label="Close sidebar"
+            >
+              <X size={18} color="#95B2A4" />
+            </button>
+          )}
         </div>
 
         {/* Navigation Body */}
@@ -42,6 +62,7 @@ export const Sidebar = () => {
               <NavLink
                 to="/customer"
                 end
+                onClick={handleNavClick}
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <LayoutDashboard size={16} />
@@ -50,6 +71,7 @@ export const Sidebar = () => {
 
               <NavLink
                 to="/customer/accounts"
+                onClick={handleNavClick}
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <Wallet size={16} />
@@ -61,6 +83,7 @@ export const Sidebar = () => {
               </div>
               <NavLink
                 to="/customer/deposit"
+                onClick={handleNavClick}
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <ArrowDownLeft size={16} color="#34D399" />
@@ -69,6 +92,7 @@ export const Sidebar = () => {
 
               <NavLink
                 to="/customer/withdraw"
+                onClick={handleNavClick}
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <ArrowUpRight size={16} color="#FBBF24" />
@@ -77,6 +101,7 @@ export const Sidebar = () => {
 
               <NavLink
                 to="/customer/transfer"
+                onClick={handleNavClick}
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <ArrowLeftRight size={16} color="#60A5FA" />
@@ -88,6 +113,7 @@ export const Sidebar = () => {
               </div>
               <NavLink
                 to="/customer/transactions"
+                onClick={handleNavClick}
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <Receipt size={16} />
@@ -96,6 +122,7 @@ export const Sidebar = () => {
 
               <NavLink
                 to="/customer/statements"
+                onClick={handleNavClick}
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <FileSpreadsheet size={16} />
@@ -105,7 +132,10 @@ export const Sidebar = () => {
               <div style={{ margin: '1rem 0 0.5rem', borderTop: '1px solid rgba(255,255,255,0.08)' }} />
               <button
                 type="button"
-                onClick={() => setRequestModalOpen(true)}
+                onClick={() => {
+                  handleNavClick();
+                  setRequestModalOpen(true);
+                }}
                 className="bv-nav-item bv-nav-item-action"
               >
                 <PlusCircle size={16} color="#34D399" />
@@ -121,6 +151,7 @@ export const Sidebar = () => {
               <NavLink
                 to="/admin"
                 end
+                onClick={handleNavClick}
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <LayoutDashboard size={16} />
@@ -132,6 +163,7 @@ export const Sidebar = () => {
               </div>
               <NavLink
                 to="/admin/accounts"
+                onClick={handleNavClick}
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <Building2 size={16} />
@@ -140,6 +172,7 @@ export const Sidebar = () => {
 
               <NavLink
                 to="/admin/users"
+                onClick={handleNavClick}
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <Users size={16} />
@@ -148,6 +181,7 @@ export const Sidebar = () => {
 
               <NavLink
                 to="/admin/transactions"
+                onClick={handleNavClick}
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <Receipt size={16} />
@@ -163,6 +197,7 @@ export const Sidebar = () => {
               <NavLink
                 to="/auditor"
                 end
+                onClick={handleNavClick}
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <LayoutDashboard size={16} />
@@ -174,6 +209,7 @@ export const Sidebar = () => {
               </div>
               <NavLink
                 to="/auditor/ledger"
+                onClick={handleNavClick}
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <Scale size={16} />
@@ -182,6 +218,7 @@ export const Sidebar = () => {
 
               <NavLink
                 to="/auditor/audit-logs"
+                onClick={handleNavClick}
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <ShieldCheck size={16} />
@@ -190,6 +227,7 @@ export const Sidebar = () => {
 
               <NavLink
                 to="/auditor/transactions"
+                onClick={handleNavClick}
                 className={({ isActive }) => `bv-nav-item ${isActive ? 'active' : ''}`}
               >
                 <Receipt size={16} />
@@ -211,7 +249,6 @@ export const Sidebar = () => {
             </div>
             <div className="bv-badge-status-dot">✓</div>
           </div>
-          <div className="bv-sidebar-copyright">BALANCE VAULT &bull; PRIVATE</div>
         </div>
       </aside>
 

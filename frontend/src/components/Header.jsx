@@ -1,9 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { User, Lock, LogOut, ChevronDown } from 'lucide-react';
+import { User, Lock, LogOut, ChevronDown, Menu } from 'lucide-react';
 
-export const Header = ({ breadcrumb = 'Workspace / Overview' }) => {
+export const Header = ({ breadcrumb = 'Workspace / Overview', onToggleMobileMenu }) => {
   const { user, role, logout } = useAuth();
   const navigate = useNavigate();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -19,9 +19,9 @@ export const Header = ({ breadcrumb = 'Workspace / Overview' }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const goToProfile = (tab = 'profile') => {
+  const goToRoute = (route) => {
     setDropdownOpen(false);
-    navigate(`/customer/profile${tab === 'security' ? '?tab=security' : ''}`);
+    navigate(route);
   };
 
   const getRoleLabel = () => {
@@ -31,7 +31,7 @@ export const Header = ({ breadcrumb = 'Workspace / Overview' }) => {
       case 'AUDITOR':
         return 'Compliance Auditor';
       default:
-        return 'Account holder';
+        return 'Account Holder';
     }
   };
 
@@ -40,14 +40,27 @@ export const Header = ({ breadcrumb = 'Workspace / Overview' }) => {
 
   return (
     <header className="bv-header">
-      {/* Breadcrumbs */}
-      <div className="bv-breadcrumb">
-        <span>{breadcrumb}</span>
+      {/* Left: Mobile hamburger menu toggle + Breadcrumbs */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
+        {onToggleMobileMenu && (
+          <button
+            type="button"
+            className="bv-mobile-menu-btn"
+            onClick={onToggleMobileMenu}
+            aria-label="Toggle navigation menu"
+          >
+            <Menu size={20} color="#0B251C" />
+          </button>
+        )}
+
+        <div className="bv-breadcrumb">
+          <span>{breadcrumb}</span>
+        </div>
       </div>
 
       {/* Right side items */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-        {/* System Operational Badge */}
+        {/* System Operational Badge (hidden on extra small screens via CSS) */}
         <div className="bv-status-pill">
           <span className="bv-status-dot" />
           <span>System: operational</span>
@@ -78,7 +91,7 @@ export const Header = ({ breadcrumb = 'Workspace / Overview' }) => {
             <div className="bv-profile-dropdown">
               <div className="bv-dropdown-user-header">
                 <div style={{ fontWeight: 600, color: '#0B251C', fontSize: '0.875rem' }}>{displayName}</div>
-                <div style={{ fontSize: '0.75rem', color: '#667085' }}>@{user?.username} &bull; {user?.email}</div>
+                <div style={{ fontSize: '0.75rem', color: '#688073' }}>@{user?.username} &bull; {user?.email}</div>
               </div>
 
               <div className="bv-dropdown-divider" />
@@ -86,7 +99,7 @@ export const Header = ({ breadcrumb = 'Workspace / Overview' }) => {
               <button
                 type="button"
                 className="bv-dropdown-item"
-                onClick={() => goToProfile('profile')}
+                onClick={() => goToRoute('/customer/profile')}
               >
                 <User size={15} color="#0B251C" />
                 <span>Profile Settings</span>
@@ -95,7 +108,7 @@ export const Header = ({ breadcrumb = 'Workspace / Overview' }) => {
               <button
                 type="button"
                 className="bv-dropdown-item"
-                onClick={() => goToProfile('security')}
+                onClick={() => goToRoute('/customer/security')}
               >
                 <Lock size={15} color="#0B251C" />
                 <span>Security & Password</span>

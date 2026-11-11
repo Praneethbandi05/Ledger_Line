@@ -43,12 +43,21 @@ export const AdminUserManagement = () => {
     setActionLoadingId(user.id);
     setError(null);
     setSuccessMessage(null);
+    const newEnabled = !user.enabled;
+    // Optimistic update
+    setUsers((prev) =>
+      prev.map((u) => (u.id === user.id ? { ...u, enabled: newEnabled } : u))
+    );
     try {
-      const newEnabled = !user.enabled;
       await adminService.toggleUserStatus(user.id, newEnabled);
       setSuccessMessage(`User @${user.username} has been ${newEnabled ? 'Enabled' : 'Deactivated'}`);
-      await loadUsers();
+      const data = await adminService.getAllUsers();
+      setUsers(Array.isArray(data) ? data : (data?.content || []));
     } catch (err) {
+      // Revert on error
+      setUsers((prev) =>
+        prev.map((u) => (u.id === user.id ? { ...u, enabled: user.enabled } : u))
+      );
       setError(err.response?.data?.message || `Failed to update status for user ${user.username}`);
     } finally {
       setActionLoadingId(null);

@@ -1,46 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { accountService } from '../services/accountService';
 import { Alert } from '../components/Alert';
 import {
   User,
-  ShieldCheck,
-  KeyRound,
   Mail,
-  Fingerprint,
-  Wallet,
-  LogOut,
-  Lock,
   Save,
-  Eye,
-  EyeOff,
-  Building2,
-  CheckCircle2
+  LogOut,
+  Building2
 } from 'lucide-react';
 
 export const CustomerProfilePage = () => {
-  const { user, role, updateProfile, changePassword, logout } = useAuth();
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  // Active tab: 'profile' or 'security'
-  const initialTab = searchParams.get('tab') === 'security' ? 'security' : 'profile';
-  const [activeTab, setActiveTab] = useState(initialTab);
-
-  // Sync tab with URL search parameter if changed via navigation
-  useEffect(() => {
-    const tabParam = searchParams.get('tab');
-    if (tabParam === 'security') {
-      setActiveTab('security');
-    } else {
-      setActiveTab('profile');
-    }
-  }, [searchParams]);
-
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-    setSearchParams(tab === 'security' ? { tab: 'security' } : {});
-  };
+  const { user, role, updateProfile, logout } = useAuth();
 
   // Profile Form State
   const [fullName, setFullName] = useState(user?.fullName || '');
@@ -49,20 +20,8 @@ export const CustomerProfilePage = () => {
   const [profileSuccess, setProfileSuccess] = useState(null);
   const [profileError, setProfileError] = useState(null);
 
-  // Security Form State
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [securityLoading, setSecurityLoading] = useState(false);
-  const [securitySuccess, setSecuritySuccess] = useState(null);
-  const [securityError, setSecurityError] = useState(null);
-
-  // Account portfolio summary
+  // Account portfolio summary (for net assets display)
   const [accounts, setAccounts] = useState([]);
-  const [accountsLoading, setAccountsLoading] = useState(true);
 
   useEffect(() => {
     loadAccounts();
@@ -78,9 +37,7 @@ export const CustomerProfilePage = () => {
       const list = Array.isArray(data) ? data : (data?.content || []);
       setAccounts(list);
     } catch (err) {
-      // Ignore background fetch error
-    } finally {
-      setAccountsLoading(false);
+      // Background non-fatal
     }
   };
 
@@ -97,35 +54,6 @@ export const CustomerProfilePage = () => {
       setProfileError(err.response?.data?.message || 'Failed to update profile.');
     } finally {
       setProfileLoading(false);
-    }
-  };
-
-  const handleSecuritySubmit = async (e) => {
-    e.preventDefault();
-    setSecurityError(null);
-    setSecuritySuccess(null);
-
-    if (newPassword.length < 8) {
-      setSecurityError('New password must be at least 8 characters long.');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setSecurityError('New password and confirmation do not match.');
-      return;
-    }
-
-    setSecurityLoading(true);
-    try {
-      await changePassword(currentPassword, newPassword);
-      setSecuritySuccess('Password updated successfully. Please use your new password next time you log in.');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    } catch (err) {
-      setSecurityError(err.response?.data?.message || 'Failed to update password.');
-    } finally {
-      setSecurityLoading(false);
     }
   };
 
@@ -148,7 +76,7 @@ export const CustomerProfilePage = () => {
   const initial = (user?.username || user?.fullName || 'U').charAt(0).toUpperCase();
 
   return (
-    <div style={{ maxWidth: '920px', margin: '0 auto', paddingBottom: '3rem' }}>
+    <div style={{ maxWidth: '880px', margin: '0 auto', paddingBottom: '3rem' }}>
       {/* Page Header */}
       <div style={{ marginBottom: '2rem' }}>
         <div className="bv-section-header">
@@ -164,10 +92,10 @@ export const CustomerProfilePage = () => {
             margin: '0 0 0.5rem',
           }}
         >
-          Profile & Security Settings
+          Profile Information
         </h1>
         <p style={{ color: '#688073', fontSize: '0.875rem', margin: 0 }}>
-          Manage your verified credentials, identity settings, and account permissions
+          Manage your verified credentials and personal identity details registered with Balance Vault.
         </p>
       </div>
 
@@ -175,7 +103,7 @@ export const CustomerProfilePage = () => {
       <div
         className="bv-card"
         style={{
-          marginBottom: '1.5rem',
+          marginBottom: '2rem',
           padding: '1.75rem 2rem',
           backgroundColor: '#FFFFFF',
           borderRadius: '16px',
@@ -199,12 +127,13 @@ export const CustomerProfilePage = () => {
                 fontFamily: "'Newsreader', serif",
                 fontWeight: 600,
                 boxShadow: '0 4px 12px rgba(9, 34, 24, 0.15)',
+                flexShrink: 0,
               }}
             >
               {initial}
             </div>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
                 <h2 style={{ fontSize: '1.375rem', fontWeight: 600, color: '#092218', margin: 0 }}>
                   {displayName}
                 </h2>
@@ -212,7 +141,7 @@ export const CustomerProfilePage = () => {
                   {getRoleLabel()}
                 </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#688073', fontSize: '0.8125rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#688073', fontSize: '0.8125rem', flexWrap: 'wrap' }}>
                 <span style={{ fontFamily: 'var(--font-mono)' }}>@{user?.username}</span>
                 <span>&bull;</span>
                 <span>{user?.email || 'No email registered'}</span>
@@ -260,461 +189,181 @@ export const CustomerProfilePage = () => {
         </div>
       </div>
 
-      {/* Tab Navigation */}
+      {/* Personal Details Form */}
       <div
         style={{
-          display: 'flex',
-          gap: '0.5rem',
-          borderBottom: '2px solid #E5EBE5',
-          marginBottom: '1.75rem',
+          backgroundColor: '#FFFFFF',
+          borderRadius: '16px',
+          border: '1px solid #E5EBE5',
+          padding: '2rem 2.25rem',
+          boxShadow: '0 4px 16px rgba(0, 0, 0, 0.02)',
         }}
       >
-        <button
-          type="button"
-          onClick={() => handleTabChange('profile')}
-          style={{
-            padding: '0.875rem 1.5rem',
-            fontSize: '0.9375rem',
-            fontWeight: activeTab === 'profile' ? 600 : 500,
-            color: activeTab === 'profile' ? '#092218' : '#688073',
-            borderBottom: activeTab === 'profile' ? '3px solid #092218' : '3px solid transparent',
-            marginBottom: '-2px',
-            background: 'none',
-            borderTop: 'none',
-            borderLeft: 'none',
-            borderRight: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            transition: 'all 0.15s ease',
-          }}
-        >
-          <User size={18} color={activeTab === 'profile' ? '#092218' : '#688073'} />
-          <span>Profile Information</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => handleTabChange('security')}
-          style={{
-            padding: '0.875rem 1.5rem',
-            fontSize: '0.9375rem',
-            fontWeight: activeTab === 'security' ? 600 : 500,
-            color: activeTab === 'security' ? '#092218' : '#688073',
-            borderBottom: activeTab === 'security' ? '3px solid #092218' : '3px solid transparent',
-            marginBottom: '-2px',
-            background: 'none',
-            borderTop: 'none',
-            borderLeft: 'none',
-            borderRight: 'none',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
-            transition: 'all 0.15s ease',
-          }}
-        >
-          <Lock size={18} color={activeTab === 'security' ? '#092218' : '#688073'} />
-          <span>Security & Password</span>
-        </button>
-      </div>
-
-      {/* TAB 1: PROFILE INFORMATION */}
-      {activeTab === 'profile' && (
-        <div
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: '16px',
-            border: '1px solid #E5EBE5',
-            padding: '2rem 2.25rem',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.02)',
-          }}
-        >
-          <div style={{ marginBottom: '1.75rem' }}>
-            <h3 style={{ fontSize: '1.1875rem', fontWeight: 600, color: '#092218', margin: '0 0 0.375rem' }}>
-              Personal Details
-            </h3>
-            <p style={{ fontSize: '0.8125rem', color: '#688073', margin: 0 }}>
-              Update your identity details registered with Balance Vault institutional accounts.
-            </p>
-          </div>
-
-          <form onSubmit={handleProfileSubmit}>
-            {profileError && (
-              <div style={{ marginBottom: '1.5rem' }}>
-                <Alert type="danger" message={profileError} onClose={() => setProfileError(null)} />
-              </div>
-            )}
-            {profileSuccess && (
-              <div style={{ marginBottom: '1.5rem' }}>
-                <Alert type="success" message={profileSuccess} onClose={() => setProfileSuccess(null)} />
-              </div>
-            )}
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 600, color: '#243D32', fontSize: '0.8125rem', marginBottom: '0.5rem' }}>
-                  Full Legal Name
-                </label>
-                <div style={{ position: 'relative', width: '100%' }}>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="e.g. John Doe"
-                    required
-                    style={{
-                      width: '100%',
-                      height: '46px',
-                      paddingLeft: '2.5rem',
-                      paddingRight: '1rem',
-                      borderRadius: '8px',
-                      border: '1px solid #D0D5DD',
-                      fontSize: '0.9375rem',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                  <User
-                    size={17}
-                    color="#688073"
-                    style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }}
-                  />
-                </div>
-              </div>
-
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 600, color: '#243D32', fontSize: '0.8125rem', marginBottom: '0.5rem' }}>
-                  Email Address
-                </label>
-                <div style={{ position: 'relative', width: '100%' }}>
-                  <input
-                    type="email"
-                    className="form-control"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="name@example.com"
-                    required
-                    style={{
-                      width: '100%',
-                      height: '46px',
-                      paddingLeft: '2.5rem',
-                      paddingRight: '1rem',
-                      borderRadius: '8px',
-                      border: '1px solid #D0D5DD',
-                      fontSize: '0.9375rem',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                  <Mail
-                    size={17}
-                    color="#688073"
-                    style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 600, color: '#243D32', fontSize: '0.8125rem', marginBottom: '0.5rem' }}>
-                  Username <span style={{ color: '#88A796', fontWeight: 400 }}>(Permanent Handle)</span>
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={user?.username || ''}
-                  disabled
-                  style={{
-                    width: '100%',
-                    height: '46px',
-                    padding: '0.625rem 1rem',
-                    borderRadius: '8px',
-                    border: '1px solid #E5EBE5',
-                    backgroundColor: '#F8FAF8',
-                    color: '#688073',
-                    cursor: 'not-allowed',
-                    fontFamily: 'var(--font-mono)',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 600, color: '#243D32', fontSize: '0.8125rem', marginBottom: '0.5rem' }}>
-                  Account Role
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={`${getRoleLabel()} (${role})`}
-                  disabled
-                  style={{
-                    width: '100%',
-                    height: '46px',
-                    padding: '0.625rem 1rem',
-                    borderRadius: '8px',
-                    border: '1px solid #E5EBE5',
-                    backgroundColor: '#F8FAF8',
-                    color: '#688073',
-                    cursor: 'not-allowed',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #E5EBE5', paddingTop: '1.5rem' }}>
-              <button
-                type="submit"
-                disabled={profileLoading}
-                className="btn btn-primary"
-                style={{
-                  backgroundColor: '#092218',
-                  borderColor: '#092218',
-                  minWidth: '150px',
-                  height: '44px',
-                  borderRadius: '8px',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
-                }}
-              >
-                {profileLoading ? (
-                  <span>Saving...</span>
-                ) : (
-                  <>
-                    <Save size={16} />
-                    <span>Save Changes</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
+        <div style={{ marginBottom: '1.75rem' }}>
+          <h3 style={{ fontSize: '1.1875rem', fontWeight: 600, color: '#092218', margin: '0 0 0.375rem' }}>
+            Personal Details
+          </h3>
+          <p style={{ fontSize: '0.8125rem', color: '#688073', margin: 0 }}>
+            Update your identity details registered with Balance Vault institutional accounts.
+          </p>
         </div>
-      )}
 
-      {/* TAB 2: SECURITY & PASSWORD */}
-      {activeTab === 'security' && (
-        <div
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: '16px',
-            border: '1px solid #E5EBE5',
-            padding: '2rem 2.25rem',
-            boxShadow: '0 4px 16px rgba(0, 0, 0, 0.02)',
-          }}
-        >
-          <div style={{ marginBottom: '1.75rem' }}>
-            <h3 style={{ fontSize: '1.1875rem', fontWeight: 600, color: '#092218', margin: '0 0 0.375rem' }}>
-              Change Password
-            </h3>
-            <p style={{ fontSize: '0.8125rem', color: '#688073', margin: 0 }}>
-              Ensure your account is protected with a secure password containing at least 8 characters.
-            </p>
-          </div>
+        <form onSubmit={handleProfileSubmit}>
+          {profileError && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <Alert type="danger" message={profileError} onClose={() => setProfileError(null)} />
+            </div>
+          )}
+          {profileSuccess && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <Alert type="success" message={profileSuccess} onClose={() => setProfileSuccess(null)} />
+            </div>
+          )}
 
-          <form onSubmit={handleSecuritySubmit}>
-            {securityError && (
-              <div style={{ marginBottom: '1.5rem' }}>
-                <Alert type="danger" message={securityError} onClose={() => setSecurityError(null)} />
-              </div>
-            )}
-            {securitySuccess && (
-              <div style={{ marginBottom: '1.5rem' }}>
-                <Alert type="success" message={securitySuccess} onClose={() => setSecuritySuccess(null)} />
-              </div>
-            )}
-
-            <div className="form-group" style={{ marginBottom: '1.5rem', maxWidth: '480px' }}>
-              <label className="form-label" style={{ fontWeight: 600, color: '#243D32', fontSize: '0.8125rem', marginBottom: '0.5rem' }}>
-                Current Password
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '1.5rem' }}>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontWeight: 600, color: '#243D32', fontSize: '0.8125rem', marginBottom: '0.5rem', display: 'block' }}>
+                Full Legal Name
               </label>
               <div style={{ position: 'relative', width: '100%' }}>
                 <input
-                  type={showCurrentPassword ? 'text' : 'password'}
+                  type="text"
                   className="form-control"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Enter your current password"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="e.g. John Doe"
                   required
                   style={{
                     width: '100%',
                     height: '46px',
                     paddingLeft: '2.5rem',
-                    paddingRight: '2.75rem',
+                    paddingRight: '1rem',
                     borderRadius: '8px',
                     border: '1px solid #D0D5DD',
                     fontSize: '0.9375rem',
                     boxSizing: 'border-box',
                   }}
                 />
-                <Lock
+                <User
                   size={17}
                   color="#688073"
                   style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+              </div>
+            </div>
+
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontWeight: 600, color: '#243D32', fontSize: '0.8125rem', marginBottom: '0.5rem', display: 'block' }}>
+                Email Address
+              </label>
+              <div style={{ position: 'relative', width: '100%' }}>
+                <input
+                  type="email"
+                  className="form-control"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="name@example.com"
+                  required
                   style={{
-                    position: 'absolute',
-                    right: '0.75rem',
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    background: 'none',
-                    border: 'none',
-                    cursor: 'pointer',
-                    color: '#688073',
-                    padding: '0.25rem',
-                    display: 'flex',
-                    alignItems: 'center',
+                    width: '100%',
+                    height: '46px',
+                    paddingLeft: '2.5rem',
+                    paddingRight: '1rem',
+                    borderRadius: '8px',
+                    border: '1px solid #D0D5DD',
+                    fontSize: '0.9375rem',
+                    boxSizing: 'border-box',
                   }}
-                >
-                  {showCurrentPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+                />
+                <Mail
+                  size={17}
+                  color="#688073"
+                  style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }}
+                />
               </div>
             </div>
+          </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 600, color: '#243D32', fontSize: '0.8125rem', marginBottom: '0.5rem' }}>
-                  New Password
-                </label>
-                <div style={{ position: 'relative', width: '100%' }}>
-                  <input
-                    type={showNewPassword ? 'text' : 'password'}
-                    className="form-control"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
-                    placeholder="Minimum 8 characters"
-                    required
-                    style={{
-                      width: '100%',
-                      height: '46px',
-                      paddingLeft: '2.5rem',
-                      paddingRight: '2.75rem',
-                      borderRadius: '8px',
-                      border: '1px solid #D0D5DD',
-                      fontSize: '0.9375rem',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                  <Lock
-                    size={17}
-                    color="#688073"
-                    style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowNewPassword(!showNewPassword)}
-                    style={{
-                      position: 'absolute',
-                      right: '0.75rem',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: '#688073',
-                      padding: '0.25rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                  >
-                    {showNewPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-                <span style={{ fontSize: '0.75rem', color: '#688073', marginTop: '0.375rem', display: 'block' }}>
-                  Must be at least 8 characters.
-                </span>
-              </div>
-
-              <div className="form-group" style={{ margin: 0 }}>
-                <label className="form-label" style={{ fontWeight: 600, color: '#243D32', fontSize: '0.8125rem', marginBottom: '0.5rem' }}>
-                  Confirm New Password
-                </label>
-                <div style={{ position: 'relative', width: '100%' }}>
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'}
-                    className="form-control"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    placeholder="Re-enter new password"
-                    required
-                    style={{
-                      width: '100%',
-                      height: '46px',
-                      paddingLeft: '2.5rem',
-                      paddingRight: '2.75rem',
-                      borderRadius: '8px',
-                      border: '1px solid #D0D5DD',
-                      fontSize: '0.9375rem',
-                      boxSizing: 'border-box',
-                    }}
-                  />
-                  <Lock
-                    size={17}
-                    color="#688073"
-                    style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    style={{
-                      position: 'absolute',
-                      right: '0.75rem',
-                      top: '50%',
-                      transform: 'translateY(-50%)',
-                      background: 'none',
-                      border: 'none',
-                      cursor: 'pointer',
-                      color: '#688073',
-                      padding: '0.25rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                    }}
-                  >
-                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #E5EBE5', paddingTop: '1.5rem' }}>
-              <button
-                type="submit"
-                disabled={securityLoading}
-                className="btn btn-primary"
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontWeight: 600, color: '#243D32', fontSize: '0.8125rem', marginBottom: '0.5rem', display: 'block' }}>
+                Username <span style={{ color: '#88A796', fontWeight: 400 }}>(Permanent Handle)</span>
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                value={user?.username || ''}
+                disabled
                 style={{
-                  backgroundColor: '#092218',
-                  borderColor: '#092218',
-                  minWidth: '160px',
-                  height: '44px',
+                  width: '100%',
+                  height: '46px',
+                  padding: '0.625rem 1rem',
                   borderRadius: '8px',
-                  fontWeight: 600,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem',
+                  border: '1px solid #E5EBE5',
+                  backgroundColor: '#F8FAF8',
+                  color: '#688073',
+                  cursor: 'not-allowed',
+                  fontFamily: 'var(--font-mono)',
+                  boxSizing: 'border-box',
                 }}
-              >
-                {securityLoading ? (
-                  <span>Updating...</span>
-                ) : (
-                  <>
-                    <KeyRound size={16} />
-                    <span>Update Password</span>
-                  </>
-                )}
-              </button>
+              />
             </div>
-          </form>
-        </div>
-      )}
+
+            <div className="form-group" style={{ margin: 0 }}>
+              <label className="form-label" style={{ fontWeight: 600, color: '#243D32', fontSize: '0.8125rem', marginBottom: '0.5rem', display: 'block' }}>
+                Account Role
+              </label>
+              <input
+                type="text"
+                className="form-control"
+                value={`${getRoleLabel()} (${role || 'USER'})`}
+                disabled
+                style={{
+                  width: '100%',
+                  height: '46px',
+                  padding: '0.625rem 1rem',
+                  borderRadius: '8px',
+                  border: '1px solid #E5EBE5',
+                  backgroundColor: '#F8FAF8',
+                  color: '#688073',
+                  cursor: 'not-allowed',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #E5EBE5', paddingTop: '1.5rem' }}>
+            <button
+              type="submit"
+              disabled={profileLoading}
+              className="btn btn-primary"
+              style={{
+                backgroundColor: '#092218',
+                borderColor: '#092218',
+                minWidth: '150px',
+                height: '44px',
+                borderRadius: '8px',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                color: '#FFFFFF',
+              }}
+            >
+              {profileLoading ? (
+                <span>Saving...</span>
+              ) : (
+                <>
+                  <Save size={16} />
+                  <span>Save Changes</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </div>
 
       {/* Session Sign Out Action */}
       <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'flex-end' }}>

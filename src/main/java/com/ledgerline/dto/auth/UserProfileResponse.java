@@ -9,6 +9,7 @@ public class UserProfileResponse {
     private String email;
     private String fullName;
     private Role role;
+    private boolean enabled = true;
 
     public UserProfileResponse() {}
 
@@ -18,6 +19,16 @@ public class UserProfileResponse {
         this.email = email;
         this.fullName = fullName;
         this.role = role;
+        this.enabled = true;
+    }
+
+    public UserProfileResponse(Long id, String username, String email, String fullName, Role role, boolean enabled) {
+        this.id = id;
+        this.username = username;
+        this.email = email;
+        this.fullName = fullName;
+        this.role = role;
+        this.enabled = enabled;
     }
 
     public Long getId() {
@@ -58,5 +69,13 @@ public class UserProfileResponse {
 
     public void setRole(Role role) {
         this.role = role;
+    }
+
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    public void setEnabled(boolean enabled) {
+        this.enabled = enabled;
     }
 }

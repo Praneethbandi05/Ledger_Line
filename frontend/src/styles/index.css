@@ -176,40 +176,41 @@ body {
 
 /* KPI / Stat Cards */
 .stat-card {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  color: white;
+  background: #FFFFFF;
+  color: #092218;
+  border: 1px solid #E2E8E0;
   border-radius: var(--radius-lg);
   padding: 1.5rem;
-  box-shadow: var(--shadow-md);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
   position: relative;
   overflow: hidden;
 }
 
 .stat-card.accent {
-  background: linear-gradient(135deg, #1e3a8a 0%, #0f172a 100%);
-  border: 1px solid rgba(96, 165, 250, 0.2);
+  background: #F4F8F4;
+  border: 1px solid #CCD8CC;
 }
 
 .stat-label {
-  font-size: 0.8125rem;
+  font-size: 0.75rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: #94a3b8;
-  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #5E7A6B;
+  font-weight: 700;
   margin-bottom: 0.5rem;
 }
 
 .stat-value {
   font-size: 2.25rem;
   font-weight: 700;
-  letter-spacing: -0.03em;
-  font-family: var(--font-mono);
-  color: white;
+  letter-spacing: -0.02em;
+  font-family: 'Newsreader', serif;
+  color: #092218;
 }
 
 .stat-subtext {
   font-size: 0.8125rem;
-  color: #cbd5e1;
+  color: #71877A;
   margin-top: 0.5rem;
 }
 
@@ -1478,5 +1479,160 @@ select:disabled {
 @media (max-width: 900px) {
   .login-brand-panel {
     display: none !important;
+  }
+}
+
+/* ==========================================================================
+   FULL RESPONSIVE LAYOUT & NAVIGATION SYSTEM
+   ========================================================================== */
+
+.bv-mobile-menu-btn {
+  display: none;
+  background: #FFFFFF;
+  border: 1px solid #D0DDD2;
+  border-radius: 8px;
+  padding: 0.45rem;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  color: #092218;
+  transition: all 0.15s ease;
+}
+
+.bv-mobile-menu-btn:hover {
+  background: #F0F4F0;
+  border-color: #B4CBB8;
+}
+
+.bv-mobile-close-btn {
+  display: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.35rem;
+  border-radius: 6px;
+  align-items: center;
+  justify-content: center;
+}
+
+.bv-mobile-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.bv-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(9, 34, 24, 0.55);
+  backdrop-filter: blur(3px);
+  z-index: 998;
+}
+
+/* Table Responsive Horizonal Scroll */
+.table-responsive,
+.table-container {
+  width: 100%;
+  overflow-x: auto !important;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-responsive table,
+.table-container table {
+  min-width: 600px;
+}
+
+@media (max-width: 992px) {
+  .bv-mobile-menu-btn {
+    display: flex;
+  }
+
+  .bv-mobile-close-btn {
+    display: flex;
+  }
+
+  .bv-sidebar {
+    position: fixed !important;
+    top: 0;
+    left: -280px;
+    bottom: 0;
+    width: 270px;
+    height: 100vh;
+    z-index: 1000;
+    transition: left 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: none;
+  }
+
+  .bv-sidebar.mobile-open {
+    left: 0 !important;
+    box-shadow: 6px 0 30px rgba(0, 0, 0, 0.45);
+  }
+
+  .bv-main-container {
+    width: 100%;
+  }
+
+  .bv-header {
+    padding: 0 1.25rem;
+  }
+
+  .bv-content {
+    padding: 1.5rem 1.25rem;
+  }
+
+  .bv-hero-banner {
+    padding: 1.75rem 1.5rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.25rem;
+  }
+
+  .bv-quick-actions-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .grid-4 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .bv-card-grid-2 {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .bv-header {
+    padding: 0 0.875rem;
+  }
+
+  .bv-breadcrumb {
+    font-size: 0.75rem;
+  }
+
+  .bv-status-pill {
+    display: none !important;
+  }
+
+  .bv-profile-name,
+  .bv-profile-role {
+    display: none !important;
+  }
+
+  .bv-content {
+    padding: 1.25rem 0.875rem;
+  }
+
+  .grid-4 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .bv-quick-actions-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .bv-hero-title {
+    font-size: 1.75rem !important;
   }
 }

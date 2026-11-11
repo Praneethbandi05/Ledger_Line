@@ -11,6 +11,7 @@ import { CustomerTransferPage } from './pages/CustomerTransferPage';
 import { CustomerTransactionsPage } from './pages/CustomerTransactionsPage';
 import { CustomerStatementPage } from './pages/CustomerStatementPage';
 import { CustomerProfilePage } from './pages/CustomerProfilePage';
+import { CustomerSecurityPage } from './pages/CustomerSecurityPage';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminUserManagement } from './pages/AdminUserManagement';
 import { AdminAccountManagement } from './pages/AdminAccountManagement';
@@ -182,8 +183,16 @@ export default function App() {
           <Route
             path="/customer/profile"
             element={
-              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN', 'AUDITOR']} breadcrumb="Settings / Profile & Security">
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN', 'AUDITOR']} breadcrumb="Settings / Profile Details">
                 <CustomerProfilePage />
+              </ProtectedLayout>
+            }
+          />
+          <Route
+            path="/customer/security"
+            element={
+              <ProtectedLayout allowedRoles={['CUSTOMER', 'ADMIN', 'AUDITOR']} breadcrumb="Settings / Security & Credentials">
+                <CustomerSecurityPage />
               </ProtectedLayout>
             }
           />

@@ -9,14 +9,11 @@ import {
   Receipt,
   ShieldCheck,
   CheckCircle2,
-  XCircle,
-  ToggleLeft,
-  ToggleRight,
-  TrendingUp,
   RefreshCw,
   Clock,
   Check,
-  X
+  X,
+  ArrowRight
 } from 'lucide-react';
 
 export const AdminDashboard = () => {
@@ -53,11 +50,22 @@ export const AdminDashboard = () => {
   };
 
   const handleToggleUserStatus = async (userId, currentEnabled) => {
+    const nextState = !currentEnabled;
+    // Optimistic UI update so the badge and action flip instantly
+    setUsers((prev) =>
+      prev.map((u) => (u.id === userId ? { ...u, enabled: nextState } : u))
+    );
     try {
-      await adminService.toggleUserStatus(userId, !currentEnabled);
-      setSuccessMessage(`User status updated to ${!currentEnabled ? 'Enabled' : 'Disabled'}`);
-      loadAdminData();
+      await adminService.toggleUserStatus(userId, nextState);
+      setSuccessMessage(`User status updated to ${nextState ? 'Active' : 'Disabled'}`);
+      // Refresh to ensure full synchronization
+      const usersData = await adminService.getAllUsers();
+      setUsers(Array.isArray(usersData) ? usersData : (usersData?.content || []));
     } catch (err) {
+      // Revert optimistic update on failure
+      setUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, enabled: currentEnabled } : u))
+      );
       setError(err.response?.data?.message || 'Failed to update user status');
     }
   };
@@ -68,8 +76,8 @@ export const AdminDashboard = () => {
     setSuccessMessage(null);
     try {
       await accountService.approveAccount(accountId);
-      setSuccessMessage(`Account ${accNum} approved and activated successfully. The account holder can now move funds.`);
-      loadAdminData();
+      setSuccessMessage(`Account ${accNum} approved and activated successfully.`);
+      await loadAdminData();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to approve account');
     } finally {
@@ -84,7 +92,7 @@ export const AdminDashboard = () => {
     try {
       await accountService.rejectAccount(accountId);
       setSuccessMessage(`Account request ${accNum} rejected.`);
-      loadAdminData();
+      await loadAdminData();
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to reject account');
     } finally {
@@ -102,44 +110,81 @@ export const AdminDashboard = () => {
   const pendingAccounts = accounts.filter((a) => a.status === 'PENDING_APPROVAL');
 
   return (
-    <div>
+    <div style={{ paddingBottom: '3rem' }}>
+      {/* Header */}
       <div
         style={{
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '1.5rem',
+          marginBottom: '1.75rem',
           flexWrap: 'wrap',
           gap: '1rem',
         }}
       >
         <div>
-          <h2 style={{ fontSize: '1.75rem', fontWeight: 700, color: '#0B251C', margin: 0 }}>
+          <div className="bv-section-header">
+            <span>GOVERNANCE &bull; SYSTEM ADMINISTRATION</span>
+          </div>
+          <h1
+            style={{
+              fontSize: '1.875rem',
+              fontWeight: 600,
+              color: '#092218',
+              fontFamily: "'Newsreader', 'Georgia', serif",
+              letterSpacing: '-0.02em',
+              margin: '0 0 0.375rem',
+            }}
+          >
             System Administration Portal
-          </h2>
-          <p style={{ color: '#688073', fontSize: '0.875rem', margin: '0.25rem 0 0 0' }}>
+          </h1>
+          <p style={{ color: '#688073', fontSize: '0.875rem', margin: 0 }}>
             User management, account onboarding approvals & platform governance
           </p>
         </div>
 
-        <button onClick={loadAdminData} className="btn btn-secondary btn-sm" disabled={loading} style={{ backgroundColor: '#FFFFFF', borderColor: '#CCD8CC', color: '#0B251C' }}>
-          <RefreshCw size={14} />
+        <button
+          onClick={loadAdminData}
+          className="btn btn-secondary btn-sm"
+          disabled={loading}
+          style={{ backgroundColor: '#FFFFFF', borderColor: '#CCD8CC', color: '#092218' }}
+        >
+          <RefreshCw size={14} className={loading ? 'spin' : ''} />
           <span>Refresh Data</span>
         </button>
       </div>
 
       {successMessage && (
-        <Alert
-          type="success"
-          message={successMessage}
-          onClose={() => setSuccessMessage(null)}
-        />
+        <div style={{ marginBottom: '1.5rem' }}>
+          <Alert
+            type="success"
+            message={successMessage}
+            onClose={() => setSuccessMessage(null)}
+          />
+        </div>
       )}
-      {error && <Alert type="danger" message={error} />}
+      {error && (
+        <div style={{ marginBottom: '1.5rem' }}>
+          <Alert type="danger" message={error} onClose={() => setError(null)} />
+        </div>
+      )}
 
       {/* Pending Approvals Notice Banner */}
       {pendingAccounts.length > 0 && (
-        <div style={{ backgroundColor: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: '12px', padding: '1rem 1.25rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div
+          style={{
+            backgroundColor: '#FEF3C7',
+            border: '1px solid #FDE68A',
+            borderRadius: '12px',
+            padding: '1rem 1.25rem',
+            marginBottom: '1.5rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '1rem',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <Clock size={20} color="#B45309" />
             <div>
@@ -155,44 +200,105 @@ export const AdminDashboard = () => {
             type="button"
             onClick={() => setActiveTab('approvals')}
             className="btn btn-sm"
-            style={{ backgroundColor: '#0B251C', color: '#FFFFFF', fontSize: '0.75rem', fontWeight: 600, padding: '0.4rem 0.875rem', borderRadius: '8px' }}
+            style={{
+              backgroundColor: '#092218',
+              color: '#FFFFFF',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              padding: '0.45rem 0.95rem',
+              borderRadius: '8px',
+            }}
           >
             Review Approvals &rarr;
           </button>
         </div>
       )}
 
-      {/* KPI Overview */}
+      {/* High-Contrast KPI Cards */}
       <div className="grid-4" style={{ marginBottom: '2rem' }}>
-        <div className="stat-card" style={{ borderColor: '#E5EBE5' }}>
-          <div className="stat-label">Total Users</div>
-          <div className="stat-value" style={{ color: '#0B251C' }}>{users.length}</div>
-          <div className="stat-subtext">Registered across all roles</div>
+        <div
+          style={{
+            backgroundColor: '#FFFFFF',
+            border: '1px solid #E2E8E0',
+            borderRadius: '14px',
+            padding: '1.5rem',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
+          }}
+        >
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#5E7A6B', marginBottom: '0.375rem' }}>
+            TOTAL USERS
+          </div>
+          <div style={{ fontSize: '2.25rem', fontWeight: 700, fontFamily: "'Newsreader', serif", color: '#092218', lineHeight: 1.2 }}>
+            {users.length}
+          </div>
+          <div style={{ fontSize: '0.8125rem', color: '#71877A', marginTop: '0.375rem' }}>
+            Registered across all roles
+          </div>
         </div>
 
-        <div className="stat-card" style={{ borderColor: '#E5EBE5' }}>
-          <div className="stat-label">Pending Approvals</div>
-          <div className="stat-value" style={{ color: pendingAccounts.length > 0 ? '#D97706' : '#0B251C' }}>
+        <div
+          style={{
+            backgroundColor: '#FFFFFF',
+            border: pendingAccounts.length > 0 ? '1px solid #FDE68A' : '1px solid #E2E8E0',
+            borderRadius: '14px',
+            padding: '1.5rem',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
+          }}
+        >
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#5E7A6B', marginBottom: '0.375rem' }}>
+            PENDING APPROVALS
+          </div>
+          <div style={{ fontSize: '2.25rem', fontWeight: 700, fontFamily: "'Newsreader', serif", color: pendingAccounts.length > 0 ? '#D97706' : '#092218', lineHeight: 1.2 }}>
             {pendingAccounts.length}
           </div>
-          <div className="stat-subtext">Awaiting admin permission</div>
+          <div style={{ fontSize: '0.8125rem', color: '#71877A', marginTop: '0.375rem' }}>
+            Awaiting admin permission
+          </div>
         </div>
 
-        <div className="stat-card" style={{ borderColor: '#E5EBE5' }}>
-          <div className="stat-label">Active Accounts</div>
-          <div className="stat-value" style={{ color: '#0B251C' }}>{customerAccounts.filter(a => a.status === 'ACTIVE').length}</div>
-          <div className="stat-subtext">Checking & savings active</div>
+        <div
+          style={{
+            backgroundColor: '#FFFFFF',
+            border: '1px solid #E2E8E0',
+            borderRadius: '14px',
+            padding: '1.5rem',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
+          }}
+        >
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#5E7A6B', marginBottom: '0.375rem' }}>
+            ACTIVE ACCOUNTS
+          </div>
+          <div style={{ fontSize: '2.25rem', fontWeight: 700, fontFamily: "'Newsreader', serif", color: '#092218', lineHeight: 1.2 }}>
+            {customerAccounts.filter((a) => a.status === 'ACTIVE').length}
+          </div>
+          <div style={{ fontSize: '0.8125rem', color: '#71877A', marginTop: '0.375rem' }}>
+            Checking & savings active
+          </div>
         </div>
 
-        <div className="stat-card accent" style={{ backgroundColor: '#E8EFE8', borderColor: '#CCD8CC' }}>
-          <div className="stat-label" style={{ color: '#4A6356' }}>Total Transacted</div>
-          <div className="stat-value" style={{ color: '#0B251C' }}>${totalPlatformVolume.toFixed(2)}</div>
-          <div className="stat-subtext" style={{ color: '#688073' }}>Cumulative USD volume</div>
+        <div
+          style={{
+            backgroundColor: '#F3F7F3',
+            border: '1px solid #CCDACC',
+            borderRadius: '14px',
+            padding: '1.5rem',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
+          }}
+        >
+          <div style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4A6856', marginBottom: '0.375rem' }}>
+            TOTAL TRANSACTED
+          </div>
+          <div style={{ fontSize: '2.25rem', fontWeight: 700, fontFamily: "'Newsreader', serif", color: '#092218', lineHeight: 1.2 }}>
+            ${totalPlatformVolume.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          </div>
+          <div style={{ fontSize: '0.8125rem', color: '#688073', marginTop: '0.375rem' }}>
+            Cumulative USD volume
+          </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="tabs" style={{ marginBottom: '1.5rem' }}>
+      <div className="tabs" style={{ marginBottom: '1.5rem', overflowX: 'auto', display: 'flex', whiteSpace: 'nowrap' }}>
         <button
           className={`tab-btn ${activeTab === 'overview' ? 'active' : ''}`}
           onClick={() => setActiveTab('overview')}
@@ -222,19 +328,19 @@ export const AdminDashboard = () => {
           className={`tab-btn ${activeTab === 'transactions' ? 'active' : ''}`}
           onClick={() => setActiveTab('transactions')}
         >
-          Transactions ({transactions.length})
+          Platform Transactions ({transactions.length})
         </button>
       </div>
 
-      {/* Tab: System Overview */}
+      {/* TAB 1: SYSTEM OVERVIEW */}
       {activeTab === 'overview' && (
         <div className="grid-2">
-          {/* Institutional Clearing Status */}
-          <div className="card" style={{ borderRadius: '16px', borderColor: '#E5EBE5' }}>
+          {/* Institutional Clearing Accounts */}
+          <div className="card" style={{ borderRadius: '16px', borderColor: '#E5EBE5', backgroundColor: '#FFFFFF' }}>
             <div className="card-header" style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E5EBE5' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <ShieldCheck size={20} color="#10B981" />
-                <h3 className="card-title" style={{ fontSize: '1.0625rem', color: '#0B251C', margin: 0 }}>
+                <h3 className="card-title" style={{ fontSize: '1.0625rem', color: '#092218', margin: 0 }}>
                   System Clearing Accounts
                 </h3>
               </div>
@@ -258,7 +364,7 @@ export const AdminDashboard = () => {
                     }}
                   >
                     <div>
-                      <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#0B251C', fontFamily: 'monospace' }}>
+                      <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#092218', fontFamily: 'monospace' }}>
                         {acc.accountNumber}
                       </div>
                       <div style={{ fontSize: '0.75rem', color: '#688073' }}>
@@ -266,8 +372,8 @@ export const AdminDashboard = () => {
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '1rem', fontWeight: 700, color: '#0B251C', fontFamily: "'Newsreader', serif" }}>
-                        ${parseFloat(acc.balance || 0).toFixed(2)}
+                      <div style={{ fontSize: '1.125rem', fontWeight: 700, color: '#092218', fontFamily: "'Newsreader', serif" }}>
+                        ${parseFloat(acc.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                       <span className="badge badge-success" style={{ fontSize: '0.625rem' }}>SYSTEM</span>
                     </div>
@@ -277,12 +383,12 @@ export const AdminDashboard = () => {
             </div>
           </div>
 
-          {/* Quick Stats & Onboarding Card */}
-          <div className="card" style={{ borderRadius: '16px', borderColor: '#E5EBE5' }}>
+          {/* Onboarding & Role Access Governance */}
+          <div className="card" style={{ borderRadius: '16px', borderColor: '#E5EBE5', backgroundColor: '#FFFFFF' }}>
             <div className="card-header" style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E5EBE5' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Building2 size={20} color="#0B251C" />
-                <h3 className="card-title" style={{ fontSize: '1.0625rem', color: '#0B251C', margin: 0 }}>
+                <Building2 size={20} color="#092218" />
+                <h3 className="card-title" style={{ fontSize: '1.0625rem', color: '#092218', margin: 0 }}>
                   Onboarding & Role Access Governance
                 </h3>
               </div>
@@ -292,22 +398,22 @@ export const AdminDashboard = () => {
                 Account holders request accounts through their workspace. Administrators review and approve each request before activation.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 1rem', backgroundColor: '#F8FAF8', borderRadius: '10px', border: '1px solid #E5EBE5' }}>
-                  <span style={{ fontSize: '0.8125rem', color: '#4A5568' }}>Pending Account Requests:</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.875rem 1rem', backgroundColor: '#F8FAF8', borderRadius: '10px', border: '1px solid #E5EBE5' }}>
+                  <span style={{ fontSize: '0.8125rem', color: '#4A5568', fontWeight: 500 }}>Pending Account Requests:</span>
                   <span style={{ fontWeight: 700, color: pendingAccounts.length > 0 ? '#D97706' : '#166534' }}>
                     {pendingAccounts.length}
                   </span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 1rem', backgroundColor: '#F8FAF8', borderRadius: '10px', border: '1px solid #E5EBE5' }}>
-                  <span style={{ fontSize: '0.8125rem', color: '#4A5568' }}>Registered Customers:</span>
-                  <span style={{ fontWeight: 700, color: '#0B251C' }}>
-                    {users.filter(u => u.role === 'CUSTOMER').length}
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.875rem 1rem', backgroundColor: '#F8FAF8', borderRadius: '10px', border: '1px solid #E5EBE5' }}>
+                  <span style={{ fontSize: '0.8125rem', color: '#4A5568', fontWeight: 500 }}>Registered Customers:</span>
+                  <span style={{ fontWeight: 700, color: '#092218' }}>
+                    {users.filter((u) => u.role === 'CUSTOMER').length}
                   </span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.75rem 1rem', backgroundColor: '#F8FAF8', borderRadius: '10px', border: '1px solid #E5EBE5' }}>
-                  <span style={{ fontSize: '0.8125rem', color: '#4A5568' }}>Double-Entry Balancing Rule:</span>
-                  <span style={{ fontWeight: 700, color: '#166534' }}>
-                    &Sigma;(Debits) &equiv; &Sigma;(Credits)
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.875rem 1rem', backgroundColor: '#F8FAF8', borderRadius: '10px', border: '1px solid #E5EBE5' }}>
+                  <span style={{ fontSize: '0.8125rem', color: '#4A5568', fontWeight: 500 }}>Total Registered Accounts:</span>
+                  <span style={{ fontWeight: 700, color: '#092218' }}>
+                    {accounts.length}
                   </span>
                 </div>
               </div>
@@ -316,12 +422,12 @@ export const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Tab: Account Approvals */}
+      {/* TAB 2: ACCOUNT APPROVALS */}
       {activeTab === 'approvals' && (
-        <div className="card" style={{ borderRadius: '16px', borderColor: '#E5EBE5' }}>
+        <div className="card" style={{ borderRadius: '16px', borderColor: '#E5EBE5', backgroundColor: '#FFFFFF' }}>
           <div className="card-header" style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E5EBE5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
-              <h3 className="card-title" style={{ fontSize: '1.125rem', color: '#0B251C', margin: 0 }}>
+              <h3 className="card-title" style={{ fontSize: '1.125rem', color: '#092218', margin: 0 }}>
                 Account Onboarding Requests ({pendingAccounts.length})
               </h3>
               <span className="card-subtitle" style={{ fontSize: '0.75rem', color: '#688073' }}>
@@ -335,7 +441,7 @@ export const AdminDashboard = () => {
               <div style={{ width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#EAF5EE', color: '#166534', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
                 <CheckCircle2 size={24} />
               </div>
-              <h4 style={{ fontSize: '1rem', fontWeight: 600, color: '#0B251C', marginBottom: '0.25rem' }}>
+              <h4 style={{ fontSize: '1rem', fontWeight: 600, color: '#092218', marginBottom: '0.25rem' }}>
                 No pending requests
               </h4>
               <p style={{ fontSize: '0.8125rem', color: '#667085', margin: 0 }}>
@@ -343,49 +449,60 @@ export const AdminDashboard = () => {
               </p>
             </div>
           ) : (
-            <div className="table-responsive">
-              <table className="table" style={{ margin: 0 }}>
+            <div className="table-responsive" style={{ overflowX: 'auto' }}>
+              <table className="table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#F8FAF8', borderBottom: '1px solid #E5EBE5' }}>
-                    <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase' }}>Account Number</th>
-                    <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase' }}>Applicant</th>
-                    <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase' }}>Type</th>
-                    <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase' }}>Currency</th>
-                    <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase' }}>Status</th>
-                    <th style={{ color: '#688073', fontSize: '0.75rem', textTransform: 'uppercase', textAlign: 'right' }}>Actions</th>
+                    <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>Account Number</th>
+                    <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>Applicant</th>
+                    <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>Type</th>
+                    <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>Currency</th>
+                    <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>Status</th>
+                    <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', padding: '0.875rem 1rem' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pendingAccounts.map((acc) => (
-                    <tr key={acc.id} style={{ borderBottom: '1px solid #F4F7F4' }}>
-                      <td style={{ fontFamily: 'monospace', fontWeight: 700, color: '#0B251C' }}>
+                    <tr key={acc.id} style={{ borderBottom: '1px solid #F0F4F0' }}>
+                      <td style={{ fontFamily: 'monospace', fontWeight: 700, color: '#092218', padding: '0.875rem 1rem' }}>
                         {acc.accountNumber}
                       </td>
-                      <td>
-                        <div style={{ fontWeight: 600, color: '#0B251C', fontSize: '0.875rem' }}>
+                      <td style={{ padding: '0.875rem 1rem' }}>
+                        <div style={{ fontWeight: 600, color: '#092218', fontSize: '0.875rem' }}>
                           {acc.user?.fullName || acc.user?.username || `User #${acc.userId || 'N/A'}`}
                         </div>
                         <div style={{ fontSize: '0.75rem', color: '#667085' }}>
                           @{acc.user?.username || 'user'} &bull; {acc.user?.email || ''}
                         </div>
                       </td>
-                      <td>
+                      <td style={{ padding: '0.875rem 1rem' }}>
                         <span className="badge badge-primary">{acc.accountType}</span>
                       </td>
-                      <td style={{ fontWeight: 600 }}>{acc.currency}</td>
-                      <td>
-                        <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '0.2rem 0.5rem', borderRadius: '9999px', backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
+                      <td style={{ fontWeight: 600, color: '#092218', padding: '0.875rem 1rem' }}>{acc.currency}</td>
+                      <td style={{ padding: '0.875rem 1rem' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '0.25rem 0.625rem', borderRadius: '9999px', backgroundColor: '#FEF3C7', color: '#92400E', border: '1px solid #FDE68A' }}>
                           PENDING APPROVAL
                         </span>
                       </td>
-                      <td style={{ textAlign: 'right' }}>
+                      <td style={{ textAlign: 'right', padding: '0.875rem 1rem' }}>
                         <div style={{ display: 'inline-flex', gap: '0.5rem' }}>
                           <button
                             type="button"
                             disabled={actionLoadingId === acc.id}
                             onClick={() => handleApproveAccount(acc.id, acc.accountNumber)}
                             className="btn btn-sm"
-                            style={{ backgroundColor: '#10B981', color: 'white', borderColor: '#10B981', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                            style={{
+                              backgroundColor: '#10B981',
+                              color: 'white',
+                              border: '1px solid #10B981',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              padding: '0.4rem 0.75rem',
+                              borderRadius: '6px',
+                            }}
                           >
                             <Check size={14} />
                             <span>Approve & Activate</span>
@@ -394,8 +511,20 @@ export const AdminDashboard = () => {
                             type="button"
                             disabled={actionLoadingId === acc.id}
                             onClick={() => handleRejectAccount(acc.id, acc.accountNumber)}
-                            className="btn btn-secondary btn-sm"
-                            style={{ borderColor: '#FCA5A5', color: '#DC2626', backgroundColor: '#FEF2F2', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                            className="btn btn-sm"
+                            style={{
+                              borderColor: '#FCA5A5',
+                              color: '#DC2626',
+                              backgroundColor: '#FEF2F2',
+                              border: '1px solid #FECACA',
+                              fontSize: '0.75rem',
+                              fontWeight: 600,
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              padding: '0.4rem 0.75rem',
+                              borderRadius: '6px',
+                            }}
                           >
                             <X size={14} />
                             <span>Reject</span>
@@ -411,48 +540,90 @@ export const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Tab: Users */}
+      {/* TAB 3: USER DIRECTORY */}
       {activeTab === 'users' && (
-        <div className="card" style={{ borderRadius: '16px', borderColor: '#E5EBE5' }}>
+        <div className="card" style={{ borderRadius: '16px', borderColor: '#E5EBE5', backgroundColor: '#FFFFFF' }}>
           <div className="card-header" style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E5EBE5' }}>
-            <h3 className="card-title" style={{ fontSize: '1.125rem', color: '#0B251C', margin: 0 }}>
+            <h3 className="card-title" style={{ fontSize: '1.125rem', color: '#092218', margin: 0 }}>
               User Directory & Status Control
             </h3>
           </div>
-          <div className="table-responsive">
-            <table className="table" style={{ margin: 0 }}>
+          <div className="table-responsive" style={{ overflowX: 'auto' }}>
+            <table className="table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: '#F8FAF8', borderBottom: '1px solid #E5EBE5' }}>
-                  <th style={{ color: '#688073', fontSize: '0.75rem' }}>Username</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem' }}>Full Name</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem' }}>Email</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem' }}>Role</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem' }}>Status</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem', textAlign: 'right' }}>Actions</th>
+                  <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>User</th>
+                  <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>Email</th>
+                  <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>Role</th>
+                  <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>Status</th>
+                  <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', padding: '0.875rem 1rem' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {users.map((u) => (
-                  <tr key={u.id} style={{ borderBottom: '1px solid #F4F7F4' }}>
-                    <td style={{ fontWeight: 600, color: '#0B251C' }}>@{u.username}</td>
-                    <td>{u.fullName}</td>
-                    <td style={{ fontSize: '0.8125rem', color: '#667085' }}>{u.email}</td>
-                    <td>
+                  <tr key={u.id} style={{ borderBottom: '1px solid #F0F4F0' }}>
+                    <td style={{ padding: '0.875rem 1rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                        <div
+                          style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '50%',
+                            backgroundColor: '#092218',
+                            color: '#FFFFFF',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.75rem',
+                            fontWeight: 700,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {u.fullName?.charAt(0) || u.username?.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 600, color: '#092218' }}>{u.fullName || u.username}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#688073' }}>@{u.username}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ fontSize: '0.8125rem', color: '#334155', padding: '0.875rem 1rem' }}>{u.email}</td>
+                    <td style={{ padding: '0.875rem 1rem' }}>
                       <span className={`badge ${u.role === 'ADMIN' ? 'badge-primary' : u.role === 'AUDITOR' ? 'badge-warning' : 'badge-completed'}`}>
-                        {u.role === 'CUSTOMER' ? 'Account holder' : u.role}
+                        {u.role === 'CUSTOMER' ? 'Account Holder' : u.role}
                       </span>
                     </td>
-                    <td>
-                      <span className={`badge ${u.enabled ? 'badge-completed' : 'badge-danger'}`}>
+                    <td style={{ padding: '0.875rem 1rem' }}>
+                      <span
+                        style={{
+                          fontSize: '0.6875rem',
+                          fontWeight: 700,
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: '9999px',
+                          backgroundColor: u.enabled ? '#EAF5EE' : '#FEF2F2',
+                          color: u.enabled ? '#166534' : '#991B1B',
+                          border: `1px solid ${u.enabled ? '#BBF7D0' : '#FECACA'}`,
+                        }}
+                      >
                         {u.enabled ? 'ACTIVE' : 'DISABLED'}
                       </span>
                     </td>
-                    <td style={{ textAlign: 'right' }}>
+                    <td style={{ textAlign: 'right', padding: '0.875rem 1rem' }}>
                       {u.role !== 'ADMIN' && (
                         <button
+                          type="button"
                           onClick={() => handleToggleUserStatus(u.id, u.enabled)}
-                          className="btn btn-secondary btn-sm"
-                          style={{ fontSize: '0.75rem' }}
+                          className="btn btn-sm"
+                          style={{
+                            fontSize: '0.75rem',
+                            fontWeight: 600,
+                            padding: '0.35rem 0.85rem',
+                            borderRadius: '6px',
+                            backgroundColor: u.enabled ? '#FEF2F2' : '#EAF5EE',
+                            color: u.enabled ? '#DC2626' : '#166534',
+                            border: `1px solid ${u.enabled ? '#FECACA' : '#BBF7D0'}`,
+                            cursor: 'pointer',
+                          }}
                         >
                           {u.enabled ? 'Suspend' : 'Activate'}
                         </button>
@@ -466,35 +637,39 @@ export const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Tab: Accounts */}
+      {/* TAB 4: ALL ACCOUNTS */}
       {activeTab === 'accounts' && (
-        <div className="card" style={{ borderRadius: '16px', borderColor: '#E5EBE5' }}>
+        <div className="card" style={{ borderRadius: '16px', borderColor: '#E5EBE5', backgroundColor: '#FFFFFF' }}>
           <div className="card-header" style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E5EBE5' }}>
-            <h3 className="card-title" style={{ fontSize: '1.125rem', color: '#0B251C', margin: 0 }}>
-              All System Accounts
+            <h3 className="card-title" style={{ fontSize: '1.125rem', color: '#092218', margin: 0 }}>
+              All System Accounts ({accounts.length})
             </h3>
           </div>
-          <div className="table-responsive">
-            <table className="table" style={{ margin: 0 }}>
+          <div className="table-responsive" style={{ overflowX: 'auto' }}>
+            <table className="table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: '#F8FAF8', borderBottom: '1px solid #E5EBE5' }}>
-                  <th style={{ color: '#688073', fontSize: '0.75rem' }}>Account Number</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem' }}>Type</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem' }}>Currency</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem', textAlign: 'right' }}>Balance</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem' }}>Status</th>
+                  <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>Account Number</th>
+                  <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>Type</th>
+                  <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>Currency</th>
+                  <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', padding: '0.875rem 1rem' }}>Balance</th>
+                  <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>Status</th>
                 </tr>
               </thead>
               <tbody>
                 {accounts.map((acc) => (
-                  <tr key={acc.id} style={{ borderBottom: '1px solid #F4F7F4' }}>
-                    <td style={{ fontFamily: 'monospace', fontWeight: 600, color: '#0B251C' }}>{acc.accountNumber}</td>
-                    <td>{acc.accountType}</td>
-                    <td>{acc.currency}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#0B251C' }}>
-                      ${parseFloat(acc.balance || 0).toFixed(2)}
+                  <tr key={acc.id} style={{ borderBottom: '1px solid #F0F4F0' }}>
+                    <td style={{ fontFamily: 'monospace', fontWeight: 600, color: '#092218', padding: '0.875rem 1rem' }}>{acc.accountNumber}</td>
+                    <td style={{ padding: '0.875rem 1rem' }}>
+                      <span className={`badge ${acc.accountType === 'SYSTEM_CLEARING' ? 'badge-warning' : 'badge-primary'}`}>
+                        {acc.accountType}
+                      </span>
                     </td>
-                    <td>
+                    <td style={{ fontWeight: 600, color: '#092218', padding: '0.875rem 1rem' }}>{acc.currency}</td>
+                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#092218', fontFamily: "'Newsreader', serif", fontSize: '1rem', padding: '0.875rem 1rem' }}>
+                      ${parseFloat(acc.balance || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td style={{ padding: '0.875rem 1rem' }}>
                       <span className={`badge ${acc.status === 'ACTIVE' ? 'badge-completed' : acc.status === 'PENDING_APPROVAL' ? 'badge-warning' : 'badge-danger'}`}>
                         {acc.status}
                       </span>
@@ -507,41 +682,69 @@ export const AdminDashboard = () => {
         </div>
       )}
 
-      {/* Tab: Transactions */}
+      {/* TAB 5: PLATFORM TRANSACTIONS */}
       {activeTab === 'transactions' && (
-        <div className="card" style={{ borderRadius: '16px', borderColor: '#E5EBE5' }}>
+        <div className="card" style={{ borderRadius: '16px', borderColor: '#E5EBE5', backgroundColor: '#FFFFFF' }}>
           <div className="card-header" style={{ padding: '1.25rem 1.5rem', borderBottom: '1px solid #E5EBE5' }}>
-            <h3 className="card-title" style={{ fontSize: '1.125rem', color: '#0B251C', margin: 0 }}>
-              Global Transaction Oversight
+            <h3 className="card-title" style={{ fontSize: '1.125rem', color: '#092218', margin: 0 }}>
+              Global Platform Transactions ({transactions.length})
             </h3>
           </div>
-          <div className="table-responsive">
-            <table className="table" style={{ margin: 0 }}>
+          <div className="table-responsive" style={{ overflowX: 'auto' }}>
+            <table className="table" style={{ margin: 0, width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: '#F8FAF8', borderBottom: '1px solid #E5EBE5' }}>
-                  <th style={{ color: '#688073', fontSize: '0.75rem' }}>Reference</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem' }}>Initiator</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem' }}>Type</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem' }}>Source</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem' }}>Destination</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem', textAlign: 'right' }}>Amount</th>
-                  <th style={{ color: '#688073', fontSize: '0.75rem' }}>Status</th>
+                  <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>Reference</th>
+                  <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>Date & Time</th>
+                  <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>Initiator</th>
+                  <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>Type</th>
+                  <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '0.875rem 1rem' }}>Account Route</th>
+                  <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'right', padding: '0.875rem 1rem' }}>Amount</th>
+                  <th style={{ color: '#5E7A6B', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', textAlign: 'center', padding: '0.875rem 1rem' }}>Status</th>
                 </tr>
               </thead>
               <tbody>
-                {transactions.map((tx) => (
-                  <tr key={tx.id || tx.reference} style={{ borderBottom: '1px solid #F4F7F4' }}>
-                    <td style={{ fontFamily: 'monospace', fontWeight: 600, color: '#0B251C' }}>{tx.reference}</td>
-                    <td>{tx.initiatedByUsername || 'system'}</td>
-                    <td><span className="badge badge-primary">{tx.transactionType}</span></td>
-                    <td style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{tx.sourceAccountNumber || '—'}</td>
-                    <td style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{tx.destinationAccountNumber || '—'}</td>
-                    <td style={{ textAlign: 'right', fontWeight: 700, color: '#0B251C' }}>
-                      ${parseFloat(tx.amount || 0).toFixed(2)} {tx.currency}
+                {transactions.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} style={{ textAlign: 'center', padding: '2.5rem', color: '#688073' }}>
+                      No platform transactions recorded yet.
                     </td>
-                    <td><span className="badge badge-completed">{tx.status}</span></td>
                   </tr>
-                ))}
+                ) : (
+                  transactions.map((tx) => (
+                    <tr key={tx.id || tx.reference} style={{ borderBottom: '1px solid #F0F4F0' }}>
+                      <td style={{ fontFamily: 'monospace', fontWeight: 700, color: '#092218', padding: '0.875rem 1rem' }}>
+                        {tx.reference}
+                      </td>
+                      <td style={{ fontSize: '0.8125rem', color: '#688073', padding: '0.875rem 1rem', whiteSpace: 'nowrap' }}>
+                        {tx.createdAt ? new Date(tx.createdAt).toLocaleString() : '—'}
+                      </td>
+                      <td style={{ padding: '0.875rem 1rem' }}>
+                        <span style={{ fontWeight: 600, color: '#092218' }}>
+                          @{tx.initiatedByUsername || 'system'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.875rem 1rem' }}>
+                        <span className={`badge ${tx.transactionType === 'DEPOSIT' ? 'badge-success' : tx.transactionType === 'WITHDRAWAL' ? 'badge-warning' : 'badge-primary'}`}>
+                          {tx.transactionType}
+                        </span>
+                      </td>
+                      <td style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: '#4A5568', padding: '0.875rem 1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                          <span>{tx.sourceAccountNumber || 'External'}</span>
+                          <ArrowRight size={12} color="#94A3B8" />
+                          <span>{tx.destinationAccountNumber || 'External'}</span>
+                        </div>
+                      </td>
+                      <td style={{ textAlign: 'right', fontWeight: 700, color: '#092218', fontFamily: "'Newsreader', serif", fontSize: '1rem', padding: '0.875rem 1rem', whiteSpace: 'nowrap' }}>
+                        ${parseFloat(tx.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {tx.currency}
+                      </td>
+                      <td style={{ textAlign: 'center', padding: '0.875rem 1rem' }}>
+                        <span className="badge badge-completed">{tx.status}</span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

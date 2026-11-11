@@ -1,20 +1,33 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 
 export const Layout = ({ children, breadcrumb = 'Workspace / Overview' }) => {
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
   return (
     <div className="bv-layout">
-      <Sidebar />
+      {/* Mobile Drawer Overlay Backdrop */}
+      {mobileSidebarOpen && (
+        <div
+          className="bv-sidebar-overlay"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
+      <Sidebar
+        mobileOpen={mobileSidebarOpen}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
+      />
+
       <div className="bv-main-container">
-        <Header breadcrumb={breadcrumb} />
+        <Header
+          breadcrumb={breadcrumb}
+          onToggleMobileMenu={() => setMobileSidebarOpen(!mobileSidebarOpen)}
+        />
         <main className="bv-content">
           {children}
         </main>
-        <footer className="bv-footer">
-          <span>Balance Vault &bull; Financial clarity by design</span>
-          <span style={{ fontSize: '0.75rem', color: '#88988C' }}>Institutional Double-Entry Engine</span>
-        </footer>
       </div>
     </div>
   );

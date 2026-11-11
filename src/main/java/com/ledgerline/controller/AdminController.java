@@ -26,7 +26,7 @@ public class AdminController {
     public ResponseEntity<ApiResponse<List<UserProfileResponse>>> getAllUsers() {
         List<UserProfileResponse> users = userRepository.findAll()
                 .stream()
-                .map(u -> new UserProfileResponse(u.getId(), u.getUsername(), u.getEmail(), u.getFullName(), u.getRole()))
+                .map(u -> new UserProfileResponse(u.getId(), u.getUsername(), u.getEmail(), u.getFullName(), u.getRole(), u.isEnabled()))
                 .toList();
 
         return ResponseEntity.ok(ApiResponse.success("Users retrieved for admin", users));
@@ -44,7 +44,7 @@ public class AdminController {
         User saved = userRepository.save(user);
 
         UserProfileResponse profile = new UserProfileResponse(
-                saved.getId(), saved.getUsername(), saved.getEmail(), saved.getFullName(), saved.getRole());
+                saved.getId(), saved.getUsername(), saved.getEmail(), saved.getFullName(), saved.getRole(), saved.isEnabled());
 
         return ResponseEntity.ok(ApiResponse.success("User status updated successfully", profile));
     }
