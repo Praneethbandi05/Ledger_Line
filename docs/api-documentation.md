@@ -232,7 +232,7 @@ All financial endpoints enforce:
 - **Request Body:**
 ```json
 {
-  "destinationAccountNumber": "ACC-ALICE-01",
+  "accountNumber": "ACC-ALICE-01",
   "amount": 150.00,
   "description": "Salary deposit"
 }
@@ -280,7 +280,7 @@ All financial endpoints enforce:
 - **Request Body:**
 ```json
 {
-  "sourceAccountNumber": "ACC-ALICE-01",
+  "accountNumber": "ACC-ALICE-01",
   "amount": 50.00,
   "description": "ATM cash withdrawal"
 }
