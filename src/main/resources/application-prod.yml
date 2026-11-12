@@ -1,3 +1,10 @@
+server:
+  error:
+    include-stacktrace: never
+    include-exception: false
+    include-message: never
+    include-binding-errors: never
+
 spring:
   jpa:
     show-sql: false
@@ -10,7 +17,7 @@ spring:
 
 logging:
   level:
-    root: INFO
+    root: WARN
     com.ledgerline: INFO
     org.springframework.security: WARN
     org.hibernate.SQL: WARN

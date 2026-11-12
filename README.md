@@ -6,7 +6,7 @@
 [![Flyway](https://img.shields.io/badge/Flyway-10.x-red.svg)](https://flywaydb.org/)
 [![React](https://img.shields.io/badge/React-18-cyan.svg)](https://react.dev/)
 [![Vite](https://img.shields.io/badge/Vite-5-purple.svg)](https://vitejs.dev/)
-[![Tests](https://img.shields.io/badge/Tests-75%2F75%20Passing-success.svg)](#automated-test-suite)
+[![Tests](https://img.shields.io/badge/Tests-78%2F78%20Passing-success.svg)](#automated-test-suite)
 
 **Balance Vault** is a full-stack institutional financial transaction platform built on a double-entry ledger model. It enforces balance integrity at the database level, prevents duplicate execution through a persistent idempotency engine, and maintains a tamper-resistant audit trail across all financial events.
 
@@ -104,7 +104,7 @@ psql -U postgres -c "CREATE DATABASE ledgerline;"
 #### 2. Backend
 Launch using the Maven wrapper or helper script:
 ```bash
-# Run test suite (75 automated integration tests)
+# Run test suite (78 automated integration tests)
 ./mvnw clean test
 
 # Build and run the Spring Boot service
@@ -264,7 +264,7 @@ server {
 
 ## Automated Test Suite
 
-The backend includes 75 automated tests across 10 test classes, organized by functional area:
+The backend includes 78 automated tests across 11 test classes, organized by functional area:
 
 | Test Suite                           | Tests | Coverage Area                                                              |
 |--------------------------------------|:-----:|----------------------------------------------------------------------------|
@@ -278,7 +278,8 @@ The backend includes 75 automated tests across 10 test classes, organized by fun
 | `AuditTrailIntegrationTest`          |  13   | Audit creation, immutability, IDOR on statements, credential sanitization. |
 | `HealthControllerIntegrationTest`    |   5   | Live database health probes and latency checks.                            |
 | `DatabaseHealthServiceTest`          |  10   | JDBC probes, latency thresholds, failure simulation.                       |
-| **Total**                            | **75**| **0 Failures — 0 Errors — 0 Skipped**                                     |
+| `RateLimitingFilterTest`             |   3   | Sliding window rate limiter, brute-force defense, HTTP 429 enforcement.    |
+| **Total**                            | **78**| **0 Failures — 0 Errors — 0 Skipped**                                     |
 
 ---
 

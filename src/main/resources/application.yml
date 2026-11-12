@@ -1,8 +1,10 @@
 server:
   port: ${PORT:8080}
   error:
-    include-message: always
-    include-binding-errors: always
+    include-stacktrace: never
+    include-exception: false
+    include-message: never
+    include-binding-errors: never
 
 spring:
   application:
@@ -50,3 +52,10 @@ ledgerline:
   jwt:
     secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
     expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  rate-limiting:
+    enabled: ${RATE_LIMITING_ENABLED:true}
+    auth-limit: ${RATE_LIMIT_AUTH:30}
+    financial-limit: ${RATE_LIMIT_FINANCIAL:60}
+    general-limit: ${RATE_LIMIT_GENERAL:180}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000,http://localhost:80,http://43.204.187.26,http://127.0.0.1:5173,http://127.0.0.1:3000}

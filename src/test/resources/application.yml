@@ -20,8 +20,8 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.H2Dialect
-        format_sql: true
-        show_sql: true
+        format_sql: false
+        show_sql: false
   flyway:
     enabled: true
     baseline-on-migrate: true
@@ -38,3 +38,7 @@ ledgerline:
   jwt:
     secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
     expiration-ms: 3600000
+  rate-limiting:
+    enabled: false
+  cors:
+    allowed-origins: "*"
