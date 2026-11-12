@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { transactionService } from '../services/transactionService';
+import { accountService } from '../services/accountService';
 import { DoubleEntryBadge } from '../components/DoubleEntryBadge';
 import { Alert } from '../components/Alert';
 import {
@@ -12,6 +13,7 @@ import {
 
 export const CustomerTransactionsPage = () => {
   const [transactions, setTransactions] = useState([]);
+  const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -27,8 +29,12 @@ export const CustomerTransactionsPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await transactionService.getMyTransactions();
-      setTransactions(Array.isArray(data) ? data : (data?.content || []));
+      const [txData, accData] = await Promise.all([
+        transactionService.getMyTransactions(),
+        accountService.getMyAccounts(),
+      ]);
+      setTransactions(Array.isArray(txData) ? txData : (txData?.content || []));
+      setAccounts(Array.isArray(accData) ? accData : (accData?.content || []));
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to retrieve transaction records');
     } finally {
@@ -215,8 +221,8 @@ export const CustomerTransactionsPage = () => {
                     <td style={{ fontSize: '0.8125rem', color: '#334155' }}>
                       {tx.description}
                     </td>
-                    <td style={{ textAlign: 'right', fontWeight: 600, fontSize: '0.875rem', color: tx.transactionType === 'DEPOSIT' ? '#166534' : '#0B251C' }}>
-                      {tx.transactionType === 'DEPOSIT' ? '+' : '-'}${parseFloat(tx.amount || 0).toFixed(2)}
+                    <td style={{ textAlign: 'right', fontWeight: 600, fontSize: '0.875rem', color: (tx.transactionType === 'DEPOSIT' || accounts.some((a) => a.accountNumber === tx.destinationAccountNumber)) ? '#166534' : '#0B251C' }}>
+                      {(tx.transactionType === 'DEPOSIT' || accounts.some((a) => a.accountNumber === tx.destinationAccountNumber)) ? '+' : '-'}${parseFloat(tx.amount || 0).toFixed(2)}
                     </td>
                     <td>
                       <span className="badge badge-success">{tx.status}</span>

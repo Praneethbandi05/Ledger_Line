@@ -82,11 +82,11 @@ export const CustomerStatementPage = () => {
   const selectedAccount = accounts.find((a) => a.id.toString() === selectedAccountId);
 
   const totalDebits = (statement?.transactions || [])
-    .filter((tx) => !(tx.transactionType === 'DEPOSIT' || tx.destinationAccount?.id === selectedAccount?.id))
+    .filter((tx) => !(tx.transactionType === 'DEPOSIT' || tx.destinationAccountNumber === selectedAccount?.accountNumber))
     .reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
 
   const totalCredits = (statement?.transactions || [])
-    .filter((tx) => tx.transactionType === 'DEPOSIT' || tx.destinationAccount?.id === selectedAccount?.id)
+    .filter((tx) => tx.transactionType === 'DEPOSIT' || tx.destinationAccountNumber === selectedAccount?.accountNumber)
     .reduce((sum, tx) => sum + parseFloat(tx.amount || 0), 0);
 
   return (
@@ -371,7 +371,7 @@ export const CustomerStatementPage = () => {
                 </thead>
                 <tbody>
                   {statement.transactions.map((tx, idx) => {
-                    const isCredit = tx.transactionType === 'DEPOSIT' || tx.destinationAccount?.id === selectedAccount?.id;
+                    const isCredit = tx.transactionType === 'DEPOSIT' || tx.destinationAccountNumber === selectedAccount?.accountNumber;
                     const amt = parseFloat(tx.amount || 0).toFixed(2);
                     return (
                       <tr

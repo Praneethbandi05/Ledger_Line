@@ -402,8 +402,8 @@ export const CustomerDashboard = () => {
                       <td style={{ fontSize: '0.8125rem', color: '#334155' }}>
                         {tx.description}
                       </td>
-                      <td style={{ textAlign: 'right', fontWeight: 600, fontSize: '0.875rem', color: tx.transactionType === 'DEPOSIT' ? '#166534' : '#0B251C' }}>
-                        {tx.transactionType === 'DEPOSIT' ? '+' : '-'}${parseFloat(tx.amount || 0).toFixed(2)}
+                      <td style={{ textAlign: 'right', fontWeight: 600, fontSize: '0.875rem', color: (tx.transactionType === 'DEPOSIT' || accounts.some((a) => a.accountNumber === tx.destinationAccountNumber)) ? '#166534' : '#0B251C' }}>
+                        {(tx.transactionType === 'DEPOSIT' || accounts.some((a) => a.accountNumber === tx.destinationAccountNumber)) ? '+' : '-'}${parseFloat(tx.amount || 0).toFixed(2)}
                       </td>
                       <td>
                         <span className="badge badge-success">{tx.status}</span>

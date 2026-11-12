@@ -75,7 +75,6 @@ export const AccountRequestModal = ({ isOpen, onClose, onSuccess }) => {
             >
               <option value="CHECKING">Checking Account (Daily transactions)</option>
               <option value="SAVINGS">Savings Account (Yield & deposits)</option>
-              <option value="INVESTMENT">Investment Account (Portfolio holding)</option>
             </select>
           </div>
 
