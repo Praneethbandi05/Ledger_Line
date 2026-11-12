@@ -88,7 +88,7 @@ export const CustomerWithdrawPage = () => {
       setAmount('');
       loadAccounts();
     } catch (err) {
-      setError(err.response?.data?.message || 'Withdrawal operation failed');
+      setError(err.response?.data?.message || err.message || 'Withdrawal operation failed');
     } finally {
       setLoading(false);
     }

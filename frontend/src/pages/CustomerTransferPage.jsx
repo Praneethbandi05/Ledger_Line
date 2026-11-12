@@ -93,7 +93,7 @@ export const CustomerTransferPage = () => {
       setAmount('');
       loadAccounts();
     } catch (err) {
-      setError(err.response?.data?.message || 'Transfer operation failed');
+      setError(err.response?.data?.message || err.message || 'Transfer operation failed');
     } finally {
       setLoading(false);
     }

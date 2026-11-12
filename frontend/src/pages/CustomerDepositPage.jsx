@@ -75,7 +75,7 @@ export const CustomerDepositPage = () => {
       setAmount('');
       loadAccounts();
     } catch (err) {
-      setError(err.response?.data?.message || 'Deposit operation failed');
+      setError(err.response?.data?.message || err.message || 'Deposit operation failed');
     } finally {
       setLoading(false);
     }
